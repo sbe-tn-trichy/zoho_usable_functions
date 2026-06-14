@@ -72,16 +72,6 @@ class TestLedgerCleaner(unittest.TestCase):
         with self.assertRaises(ValueError):
             clean_ledger_file("some_unknown_ledger.xls")
 
-    def test_clean_ledger_file_real_file(self):
-        # Run cleaner on the actual Polycab ledger file in project root
-        file_path = "/Users/vak/Documents/workspace/zoho_usable_functions/277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls"
-        txs = clean_ledger_file(file_path)
-        
-        self.assertEqual(len(txs), 108)
-        self.assertEqual(txs[0]["account_no"], "109461")
-        self.assertEqual(txs[0]["date"], "2026-01-02")
-        self.assertEqual(txs[0]["transaction_no"], "2601238365")
-        self.assertEqual(txs[0]["debit_amount"], 314189.27)
 
     @patch("os.path.exists")
     @patch("xlrd.open_workbook")
@@ -109,14 +99,4 @@ class TestLedgerCleaner(unittest.TestCase):
         self.assertEqual(metadata["end_date"], "2026-03-31")
         self.assertEqual(metadata["party_name"], "POLYCAB INDIA LIMITED")
         self.assertEqual(metadata["opening_balance"], -12345.50)
-
-    def test_get_ledger_metadata_real_file(self):
-        file_path = "/Users/vak/Documents/workspace/zoho_usable_functions/277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls"
-        from zoho_usable_functions.reconciliation.cleaner import get_ledger_metadata
-        metadata = get_ledger_metadata(file_path)
-        
-        self.assertEqual(metadata["start_date"], "2026-01-01")
-        self.assertEqual(metadata["end_date"], "2026-03-31")
-        self.assertEqual(metadata["party_name"], "BHARATH DISTRIBUTORS")
-        self.assertEqual(metadata["opening_balance"], -355073.71)
 

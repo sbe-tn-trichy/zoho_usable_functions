@@ -4,6 +4,7 @@ from zoho_usable_functions.credit_memos.processor import (
     parse_polycab_credit_memo,
     resolve_vendor_id,
     resolve_account_id,
+    resolve_item_id,
     create_vendor_credit_from_pdf,
     upload_vendor_credit_attachment,
     upload_to_workdrive
@@ -130,3 +131,19 @@ class TestCreditMemoProcessor(unittest.TestCase):
         res = upload_to_workdrive(wd_client, "folder_123", "dummy.pdf")
         self.assertEqual(res["data"][0]["id"], "wd_file_111")
         wd_client.files.upload.assert_called_once_with("folder_123", "dummy.pdf")
+
+    def test_resolve_item_id(self):
+        from zoho_usable_functions.core.config import Config
+        
+        # Test Case 1: Scheme CN (RSO Number missing or empty)
+        self.assertEqual(resolve_item_id("Some raw text without RSO"), Config.ZOHO_SCHEME_CN_ITEM_ID)
+        self.assertEqual(resolve_item_id("RSO Number : \n"), Config.ZOHO_SCHEME_CN_ITEM_ID)
+        
+        # Test Case 2: RSO CN (RSO Number present and non-empty)
+        self.assertEqual(resolve_item_id("RSO Number : 12345"), Config.ZOHO_RSO_CN_ITEM_ID)
+        self.assertEqual(resolve_item_id("RSO No. : 25267008565"), Config.ZOHO_RSO_CN_ITEM_ID)
+        self.assertEqual(resolve_item_id("RSO No : 98765"), Config.ZOHO_RSO_CN_ITEM_ID)
+        
+        # Test Case 3: RSO CN based on keywords
+        self.assertEqual(resolve_item_id("return type without reference text"), Config.ZOHO_RSO_CN_ITEM_ID)
+        self.assertEqual(resolve_item_id("Contains ldo01 item"), Config.ZOHO_RSO_CN_ITEM_ID)

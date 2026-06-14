@@ -177,6 +177,13 @@ def resolve_item_id(pdf_text: str) -> str:
     Returns the corresponding Zoho Books Item ID.
     """
     text_lower = pdf_text.lower()
+    
+    # Check if RSO Number field is present and not empty
+    rso_match = re.search(r"RSO\s+(?:Number|No\.?)\s*:\s*(\S+)", pdf_text, re.IGNORECASE)
+    if rso_match and rso_match.group(1).strip():
+        logger.info(f"Classified CN as RSO CN based on RSO Number: '{rso_match.group(1)}'")
+        return Config.ZOHO_RSO_CN_ITEM_ID
+        
     if "return type without reference" in text_lower or "ldo01" in text_lower or "llp01" in text_lower:
         return Config.ZOHO_RSO_CN_ITEM_ID
     return Config.ZOHO_SCHEME_CN_ITEM_ID

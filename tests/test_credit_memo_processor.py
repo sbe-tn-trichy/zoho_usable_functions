@@ -112,6 +112,18 @@ class TestCreditMemoProcessor(unittest.TestCase):
         payload = books_client.request.call_args[1]['json']
         self.assertEqual(payload["bill_id"], "bill_777")
         self.assertNotIn("reference_invoice_type", payload)
+        
+        # Test Case 3: RSO CN description override with RSO Number alone
+        from zoho_usable_functions.core.config import Config
+        books_client.request.reset_mock()
+        mock_resolve_item.return_value = Config.ZOHO_RSO_CN_ITEM_ID
+        mock_parse.return_value["raw_text"] = "RSO Number : 25267008565 E-Way Bill No :\n"
+        
+        res = create_vendor_credit_from_pdf(books_client, "dummy.pdf")
+        books_client.request.assert_called_once()
+        payload = books_client.request.call_args[1]['json']
+        self.assertEqual(payload["line_items"][0]["description"], "25267008565")
+        self.assertEqual(payload["line_items"][0]["item_id"], Config.ZOHO_RSO_CN_ITEM_ID)
 
     @patch("os.path.exists")
     @patch("builtins.open")

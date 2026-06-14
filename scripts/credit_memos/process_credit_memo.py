@@ -53,9 +53,9 @@ def main():
         logger.error(f"Files directory not found: {args.files_dir}")
         return
         
-    pdf_files = sorted([f for f in os.listdir(args.files_dir) if f.endswith(".pdf")])
+    pdf_files = sorted([f for f in os.listdir(args.files_dir) if f.endswith(".pdf") and (f.startswith("CM-") or f.startswith("CN-"))])
     if not pdf_files:
-        logger.info(f"No PDF files found in {args.files_dir} folder.")
+        logger.info(f"No CM- or CN- PDF files found in {args.files_dir} folder.")
         return
         
     logger.info(f"Processing {len(pdf_files)} PDF credit memos...")

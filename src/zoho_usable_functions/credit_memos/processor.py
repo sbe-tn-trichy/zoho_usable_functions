@@ -178,8 +178,8 @@ def resolve_item_id(pdf_text: str) -> str:
     """
     text_lower = pdf_text.lower()
     
-    # Check if RSO Number field is present and not empty
-    rso_match = re.search(r"RSO\s+(?:Number|No\.?)\s*:\s*(\S+)", pdf_text, re.IGNORECASE)
+    # Check if RSO Number field is present and not empty (must be digits)
+    rso_match = re.search(r"RSO\s+(?:Number|No\.?)\s*:\s*(\d+)", pdf_text, re.IGNORECASE)
     if rso_match and rso_match.group(1).strip():
         logger.info(f"Classified CN as RSO CN based on RSO Number: '{rso_match.group(1)}'")
         return Config.ZOHO_RSO_CN_ITEM_ID
@@ -228,6 +228,13 @@ def create_vendor_credit_from_pdf(
         
     item_id = resolve_item_id(details["raw_text"])
     
+    # If it is an RSO CN, use the RSO number alone as description
+    description = details["description"]
+    if item_id == Config.ZOHO_RSO_CN_ITEM_ID:
+        rso_match = re.search(r"RSO\s+(?:Number|No\.?)\s*:\s*(\d+)", details["raw_text"], re.IGNORECASE)
+        if rso_match:
+            description = rso_match.group(1).strip()
+    
     payload = {
         "vendor_id": vendor_id,
         "vendor_credit_number": details["vendor_credit_number"],
@@ -237,7 +244,7 @@ def create_vendor_credit_from_pdf(
                 "item_id": item_id,
                 "rate": details["amount"],
                 "quantity": 1,
-                "description": details["description"],
+                "description": description,
                 "gst_treatment_code": "out_of_scope"
             }
         ]

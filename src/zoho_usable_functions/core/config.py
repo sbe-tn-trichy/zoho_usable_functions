@@ -23,10 +23,10 @@ class Config:
 
     # Local Directory Paths
     PROJECT_ROOT = str(root_dir)
-    FILES_DIR = os.getenv("FILES_DIR", str(root_dir / "files"))
+    FILES_DIR = os.getenv("FILES_DIR", str(root_dir / "files" / "polycab" / "cn"))
     POLYCAB_LEDGER_PATH = os.getenv(
         "POLYCAB_LEDGER_PATH", 
-        str(root_dir / "277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls")
+        str(root_dir / "files" / "polycab" / "ledger" / "277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls")
     )
 
     # Zoho Books Entity IDs

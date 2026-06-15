@@ -3,7 +3,7 @@ Reconcile Zoho Books Carl Zeiss vendor account against the Zeiss CSV statement.
 
 Usage:
     uv run python scripts/reconciliation/reconcile_zeiss.py
-    uv run python scripts/reconciliation/reconcile_zeiss.py --vendor-id 1094368000002502821 --ledger-path files/zeiss/...csv
+    uv run python scripts/reconciliation/reconcile_zeiss.py --vendor-id 1094368000002502821 --ledger-path input_files/zeiss/...csv
 """
 import argparse
 import logging

@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, List
 from ..core.config import Config
+from ..reconciliation.matcher import fetch_vendor_credits
 
 logger = logging.getLogger(__name__)
 
@@ -262,3 +263,217 @@ def upload_vendor_credit_attachment(books_client: Any, vendor_credit_id: str, pd
 def upload_to_workdrive(wd_client: Any, folder_id: str, pdf_path: str) -> Dict[str, Any]:
     """Uploads PDF file to Zoho WorkDrive folder."""
     return wd_client.files.upload(folder_id, pdf_path)
+
+def process_polycab_credit_memos(
+    books_client: Optional[Any] = None,
+    wd_client: Optional[Any] = None,
+    files_dir: str = Config.FILES_DIR,
+    folder_id: str = Config.POLYCAB_FOLDER_ID,
+    vendor_id: str = Config.POLYCAB_VENDOR_ID
+) -> Dict[str, Any]:
+    """
+    Processes all Polycab credit memo PDFs in the files_dir.
+    Creates vendor credits in Zoho Books and uploads the PDFs to WorkDrive.
+    Matches credit numbers to prevent duplicate postings.
+    
+    Args:
+        books_client (Any, optional): ZohoBooksAPI client instance. Auto-initialized if None.
+        wd_client (Any, optional): ZohoWorkdriveAPI client instance. Auto-initialized if None.
+        files_dir (str): Directory containing credit memo PDFs.
+        folder_id (str): Target Zoho WorkDrive folder ID.
+        vendor_id (str): Vendor ID for Polycab.
+        
+    Returns:
+        Dict[str, Any]: Detailed counts of processed, created, uploaded, and skipped items.
+    """
+    if not books_client or not wd_client:
+        from ..core.auth import get_books_client, get_workdrive_client, fetch_access_tokens
+        tokens = fetch_access_tokens()
+        if not books_client:
+            books_client = get_books_client(token=tokens.get("books"))
+        if not wd_client:
+            wd_client = get_workdrive_client(token=tokens.get("workdrive"))
+    # 1. Fetch existing vendor credits in Zoho Books to prevent duplicates
+    logger.info("Fetching existing vendor credits in Zoho Books...")
+    existing_credits = fetch_vendor_credits(books_client, {"vendor_id": vendor_id})
+    existing_credit_numbers = {c.get("vendor_credit_number") for c in existing_credits if c.get("vendor_credit_number")}
+    logger.info(f"Found {len(existing_credit_numbers)} existing vendor credits in Books.")
+    
+    # 2. Fetch existing files in WorkDrive target folder to prevent duplicate uploads
+    logger.info("Fetching existing files in Zoho WorkDrive folder...")
+    try:
+        wd_files = wd_client.files.list_all_files(folder_id)
+        existing_wd_filenames = {f.get("attributes", {}).get("name") for f in wd_files}
+    except Exception as e:
+        logger.warning(f"Could not list WorkDrive folder contents: {e}")
+        existing_wd_filenames = set()
+    logger.info(f"Found {len(existing_wd_filenames)} files in target WorkDrive folder.")
+
+    # Get all PDF files to process
+    if not os.path.exists(files_dir):
+        raise FileNotFoundError(f"Files directory not found: {files_dir}")
+        
+    pdf_files = sorted([f for f in os.listdir(files_dir) if f.endswith(".pdf") and (f.startswith("CM-") or f.startswith("CN-"))])
+    if not pdf_files:
+        logger.info(f"No CM- or CN- PDF files found in {files_dir} folder.")
+        return {
+            "total_files": 0,
+            "processed": 0,
+            "books_created": 0,
+            "books_skipped": 0,
+            "wd_uploaded": 0,
+            "wd_skipped": 0,
+            "errors": 0
+        }
+        
+    logger.info(f"Processing {len(pdf_files)} PDF credit memos...")
+    
+    summary = {
+        "total_files": len(pdf_files),
+        "processed": 0,
+        "books_created": 0,
+        "books_skipped": 0,
+        "wd_uploaded": 0,
+        "wd_skipped": 0,
+        "errors": 0
+    }
+    
+    for f in pdf_files:
+        file_path = os.path.join(files_dir, f)
+        logger.info(f"--------------------------------------------------")
+        logger.info(f"File: {f}")
+        
+        try:
+            # Step 1: Parse PDF
+            details = parse_polycab_credit_memo(file_path)
+            cn_num = details["vendor_credit_number"]
+            amount = details["amount"]
+            date_str = details["date"]
+            
+            logger.info(f"Parsed details: CN={cn_num} | Date={date_str} | Amount={amount}")
+            summary["processed"] += 1
+            
+            if not cn_num or amount <= 0:
+                logger.error("Invalid details parsed. Skipping.")
+                summary["errors"] += 1
+                continue
+                
+            # Step 2: Create Vendor Credit in Zoho Books
+            vc_id = None
+            if cn_num in existing_credit_numbers:
+                logger.info(f"Vendor credit {cn_num} already exists in Zoho Books. Skipping creation.")
+                summary["books_skipped"] += 1
+                for c in existing_credits:
+                    if c.get("vendor_credit_number") == cn_num:
+                        vc_id = c.get("vendor_credit_id")
+                        break
+            else:
+                logger.info("Creating vendor credit in Zoho Books...")
+                vc = create_vendor_credit_from_pdf(books_client, file_path)
+                vc_id = vc.get("vendor_credit_id")
+                logger.info(f"Vendor credit successfully created in Books (ID: {vc_id}).")
+                summary["books_created"] += 1
+                existing_credit_numbers.add(cn_num)
+                
+            # Step 3: Attach PDF in Zoho Books
+            if vc_id:
+                try:
+                    logger.info("Attaching PDF to vendor credit in Books...")
+                    upload_vendor_credit_attachment(books_client, vc_id, file_path)
+                    logger.info("PDF attached to vendor credit successfully.")
+                except Exception as e:
+                    logger.warning(f"Could not attach PDF to Zoho Books: {e}")
+            
+            # Step 4: Upload to WorkDrive
+            if f in existing_wd_filenames:
+                logger.info("File already exists in Zoho WorkDrive folder. Skipping upload.")
+                summary["wd_skipped"] += 1
+            else:
+                logger.info("Uploading file to Zoho WorkDrive...")
+                upload_to_workdrive(wd_client, folder_id, file_path)
+                logger.info("File successfully uploaded to WorkDrive.")
+                summary["wd_uploaded"] += 1
+                existing_wd_filenames.add(f)
+                
+        except Exception as e:
+            logger.error(f"Error processing file {f}: {e}")
+            summary["errors"] += 1
+            
+    return summary
+
+def check_vendor_credits_location(
+    books_client: Optional[Any] = None,
+    vendor_id: str = Config.POLYCAB_VENDOR_ID,
+    expected_location_id: str = Config.EXPECTED_LOCATION_ID
+) -> Dict[str, Any]:
+    """
+    Fetches all vendor credits for a vendor and audits them to find ones with incorrect
+    location/branch ID or no location set.
+    
+    Args:
+        books_client (Any, optional): ZohoBooksAPI client instance. Auto-initialized if None.
+        vendor_id (str): Vendor ID to audit.
+        expected_location_id (str): Expected Location / Branch ID.
+        
+    Returns:
+        Dict[str, Any]: Categorized credit notes (correct, mismatched, no_location) and totals.
+    """
+    if not books_client:
+        from ..core.auth import get_books_client
+        books_client = get_books_client()
+
+    logger.info(f"Fetching ALL vendor credits for vendor_id={vendor_id}...")
+    
+    all_credits = []
+    page = 1
+    while True:
+        res = books_client.request('GET', 'vendorcredits', params={
+            'vendor_id': vendor_id,
+            'page': page,
+            'per_page': 200
+        })
+        records = res.get('vendor_credits', res.get('vendorcredits', []))
+        all_credits.extend(records)
+        has_more = res.get('page_context', {}).get('has_more_page', False)
+        logger.info(f"  Page {page}: fetched {len(records)} credits (total so far: {len(all_credits)})")
+        if not has_more:
+            break
+        page += 1
+        
+    mismatched = []
+    no_location = []
+    correct = []
+    
+    for vc in all_credits:
+        loc_id = vc.get('location_id') or vc.get('branch_id') or ''
+        loc_name = vc.get('location_name') or vc.get('branch_name') or ''
+        vc_number = vc.get('vendor_credit_number', '')
+        vc_id = vc.get('vendor_credit_id', '')
+        date = vc.get('date', '')
+        amount = vc.get('total', vc.get('amount', ''))
+        status = vc.get('status', '')
+        
+        info = {
+            'id': vc_id,
+            'number': vc_number,
+            'date': date,
+            'amount': amount,
+            'status': status,
+            'location_id': loc_id,
+            'location_name': loc_name
+        }
+        
+        if not loc_id:
+            no_location.append(info)
+        elif loc_id != expected_location_id:
+            mismatched.append(info)
+        else:
+            correct.append(info)
+            
+    return {
+        "correct": correct,
+        "mismatched": mismatched,
+        "no_location": no_location,
+        "total_checked": len(all_credits)
+    }
+

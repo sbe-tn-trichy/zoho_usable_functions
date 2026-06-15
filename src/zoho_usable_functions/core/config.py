@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -24,10 +25,10 @@ class Config:
 
     # Local Directory Paths
     PROJECT_ROOT = str(root_dir)
-    FILES_DIR = os.getenv("FILES_DIR", str(root_dir / "files" / "polycab" / "cn"))
+    FILES_DIR = os.getenv("FILES_DIR", str(root_dir / "input_files" / "polycab" / "cn"))
     POLYCAB_LEDGER_PATH = os.getenv(
         "POLYCAB_LEDGER_PATH", 
-        str(root_dir / "files" / "polycab" / "ledger" / "277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls")
+        str(root_dir / "input_files" / "polycab" / "ledger" / "277498_ReconciliationLedger_1-Jan-26_to_31-Mar-26.xls")
     )
 
     # Zoho Books Entity IDs
@@ -41,7 +42,7 @@ class Config:
     ZEISS_VENDOR_ID = os.getenv("ZEISS_VENDOR_ID", "1094368000002502821")
     ZEISS_LEDGER_PATH = os.getenv(
         "ZEISS_LEDGER_PATH",
-        str(root_dir / "files" / "zeiss" / "ZeissOct2025_Statement - ZeissOct2025_Statement.csv")
+        str(root_dir / "input_files" / "zeiss" / "ZeissOct2025_Statement - ZeissOct2025_Statement.csv")
     )
 
     # Location / Branch Config
@@ -57,3 +58,10 @@ class Config:
         GSTIN_TO_VENDOR_ID = json.loads(os.getenv("GSTIN_TO_VENDOR_ID", "{}"))
     except Exception:
         GSTIN_TO_VENDOR_ID = {}
+
+# Warn if default config is loaded
+logger = logging.getLogger("zoho_usable_functions.config")
+if Config.ORG_ID == "60018185359":
+    logger.debug("Config: Relying on default Zoho Books ORG_ID. Ensure this is intentional.")
+if Config.POLYCAB_FOLDER_ID == "wue3rf80474a32d3f4b67af8652d97ea5ab6c":
+    logger.debug("Config: Relying on default Polycab WorkDrive folder ID. Ensure this is intentional.")

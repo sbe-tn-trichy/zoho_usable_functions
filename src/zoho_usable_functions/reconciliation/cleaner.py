@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 from ..core.config import Config
+from ..core.exceptions import LedgerParsingError, LedgerNotImplementedError
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def clean_polycab_ledger(file_path: str) -> List[Dict[str, Any]]:
             break
             
     if header_row_index == -1:
-        raise ValueError("Could not find the Polycab header row starting with 'Account No'")
+        raise LedgerParsingError("Could not find the Polycab header row starting with 'Account No'")
         
     headers = [str(sheet.cell_value(header_row_index, c)).strip() for c in range(sheet.ncols)]
     
@@ -307,14 +308,14 @@ def clean_ledger_file(file_path: str, vendor_key: Optional[str] = None) -> List[
         elif "zeiss" in filename:
             vendor_key = "zeiss"
         else:
-            raise ValueError(f"Could not auto-determine vendor layout for file: {filename}. Please specify vendor_key.")
+            raise LedgerParsingError(f"Could not auto-determine vendor layout for file: {filename}. Please specify vendor_key.")
 
     if vendor_key == "polycab":
         entries = clean_polycab_ledger(file_path)
     elif vendor_key == "zeiss":
         entries = clean_zeiss_ledger(file_path)
     else:
-        raise NotImplementedError(f"No cleaning implementation available for vendor key: '{vendor_key}'")
+        raise LedgerNotImplementedError(f"No cleaning implementation available for vendor key: '{vendor_key}'")
 
     for idx, entry in enumerate(entries):
         if "id" not in entry:

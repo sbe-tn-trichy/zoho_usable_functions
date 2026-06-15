@@ -136,7 +136,7 @@ Thumbs.db
 
 # Project custom ignores
 .env
-files/
+input_files/
 logs/
 output/
 uv.lock

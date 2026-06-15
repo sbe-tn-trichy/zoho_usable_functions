@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Dict
 from zoho.books import ZohoBooksAPI
 from zoho.wd import ZohoWorkdriveAPI
 from .config import Config
+from .exceptions import ZohoAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def get_books_client(token: Optional[str] = None, org_id: str = Config.ORG_ID, d
         tokens = fetch_access_tokens()
         token = tokens.get("books")
         if not token:
-            raise ValueError("No Zoho Books access token available.")
+            raise ZohoAuthError("No Zoho Books access token available.")
             
     return ZohoBooksAPI(access_token=token, organization_id=org_id, domain=domain)
 
@@ -55,6 +56,6 @@ def get_workdrive_client(token: Optional[str] = None, domain: str = Config.DOMAI
         tokens = fetch_access_tokens()
         token = tokens.get("workdrive")
         if not token:
-            raise ValueError("No Zoho Workdrive access token available.")
+            raise ZohoAuthError("No Zoho Workdrive access token available.")
             
     return ZohoWorkdriveAPI(access_token=token, domain=domain)

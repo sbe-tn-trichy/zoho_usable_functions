@@ -47,7 +47,7 @@ PHASE 3: Automated Verification
 
 - All library code lives in `src/zoho_usable_functions/`
 - Runner scripts live in `scripts/` and are NOT part of the importable library
-- Input files (ledgers, PDFs) live in `files/` (gitignored)
+- Input files (ledgers, PDFs) live in `input_files/` (gitignored)
 - Config is always loaded via `Config` class in `core/config.py` — never hardcode IDs
 - The Zoho SDK (`zoho_sdk`) is a sibling package installed separately
 
@@ -91,7 +91,7 @@ PHASE 3: Automated Verification
 | `get_workdrive_client` | Function | Core/Auth | Factory for ZohoWorkdriveAPI client instance |
 
 ## Subdirectories
-- `files`
+- `input_files`
 - `logs`
 - `output`
 - `scripts`
@@ -101,7 +101,7 @@ PHASE 3: Automated Verification
 ## File Inventory
 | File Name | Extension | Description |
 | --- | --- | --- |
-| .gitignore | (none) | Git exclusion patterns (ignores `.venv`, `files/`, etc.) |
+| .gitignore | (none) | Git exclusion patterns (ignores `.venv`, `input_files/`, etc.) |
 | GEMINI.md | .md | Agent instruction file with backend architecture blueprints |
 | INDEX.md | .md | Code index mapping all modules and public helper methods |
 | pyproject.toml | .toml | Package metadata and dependencies config |

@@ -29,9 +29,11 @@ zoho_usable_functions/
 │   │   ├── _bank_matcher.py         # Bank statement ↔ Zoho Books matching
 │   │   ├── _vendor_reconciler.py    # 4-way vendor-account reconciliation engine
 │   │   ├── cleaner.py               # Parse raw vendor ledger files → normalised dicts
-│   │   └── matcher.py               # Re-export facade (public API unchanged)
+│   │   ├── gstr2b.py                # GSTR-2B reconciliation module
+│   │   ├── matcher.py               # Re-export facade (public API unchanged)
+│   │   └── zeiss_pdf.py             # Carl Zeiss PDF statements parser and consolidator
 │   └── credit_memos/
-│       └── processor.py             # Parse Polycab PDFs + post to Zoho Books
+│       └── processor.py             # Parse Polycab PDFs, batch processing, location auditor
 ├── scripts/                         # Standalone runner scripts (not importable library)
 │   ├── reconciliation/
 │   │   ├── convert_zeiss_pdf.py     # Convert Zeiss PDF statements → CSV and consolidate
@@ -41,7 +43,7 @@ zoho_usable_functions/
 │   │   └── run_reconciliation.py    # Generic reconciliation entry point
 │   ├── reconcile_gstr2b.py          # GSTR-2B reconciliation (standalone)
 │   └── credit_memos/                # Credit memo processing scripts
-├── files/                           # Input data files (ledgers, PDFs) — gitignored
+├── input_files/                           # Input data files (ledgers, PDFs) — gitignored
 │   ├── polycab/ledger/              # Polycab Excel ledger files (.xls)
 │   ├── polycab/cn/                  # Polycab Credit Note PDFs
 │   └── zeiss/                       # Zeiss CSV ledger files
@@ -119,6 +121,38 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
     "debit_memo":    {"matches": [...], "unmatched_books": [...], "unmatched_ledger": [...]},
 }
 ```
+---
+
+### reconciliation.gstr2b
+
+| Function | Signature | Returns | Notes |
+|---|---|---|---|
+| `reconcile_gstr2b_with_books` | `(books_client=None, gstr2b_csv_path="input_files/gst", from_date=None, to_date=None, amount_tolerance=1.0, temp_xlsx_path=None)` | `Dict` | Full reconciliation between GSTR-2B CSV (or directory containing CSVs) and Zoho Books inward supplies. Auto-initializes auth. |
+
+**Return dict shape** for `reconcile_gstr2b_with_books`:
+```python
+{
+    "matched_invoices": [...],
+    "discrepant_invoices": [...],
+    "missing_invoices": [...],
+    "matched_credits": [...],
+    "discrepant_credits": [...],
+    "missing_credits": [...],
+    "gst_rows_count": int,
+    "invoices_count": int,
+    "credits_count": int,
+    "gstin_to_vendor_id": dict
+}
+```
+
+---
+
+### reconciliation.zeiss_pdf
+
+| Function | Signature | Returns | Notes |
+|---|---|---|---|
+| `parse_zeiss_pdf_statement` | `(pdf_path: str)` | `List[Dict]` | Parses transaction lines from a Zeiss PDF statement using `pdfplumber`. |
+| `consolidate_zeiss_statements` | `(ledgers_dir: str, output_csv_path: str)` | `List[Dict]` | Parses, de-duplicates, sorts chronologically, and saves Carl Zeiss PDF statements to CSV. |
 
 ---
 
@@ -130,6 +164,8 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 | `create_vendor_credit_from_pdf` | `(books_client, pdf_path, vendor_name="Polycab", account_name="Polycab Scheme - Expense")` | `Dict` | Parses PDF → classifies RSO/Scheme → POSTs vendor credit to Zoho Books. |
 | `upload_vendor_credit_attachment` | `(books_client, vendor_credit_id: str, pdf_path: str)` | `Dict` | Attaches PDF file to a Vendor Credit in Zoho Books. |
 | `upload_to_workdrive` | `(wd_client, folder_id: str, pdf_path: str)` | `Dict` | Uploads PDF to Zoho WorkDrive folder. |
+| `process_polycab_credit_memos` | `(books_client=None, wd_client=None, files_dir=None, folder_id=None, vendor_id=None)` | `Dict` | Batch process Polycab credit memo PDFs with auto-authentication/initialization. |
+| `check_vendor_credits_location` | `(books_client=None, vendor_id=None, expected_location_id=None)` | `Dict` | Audits all vendor credits for correct/mismatched/unset location settings. Auto-initializes. |
 
 **`parse_polycab_credit_memo` return dict**:
 ```python
@@ -169,7 +205,7 @@ All values loaded from `.env` at repo root. Defaults shown below.
 | `ORG_ID` | `ORG_ID` | Zoho Books organisation ID |
 | `DOMAIN` | `DOMAIN` | `"in"` (India) |
 | `POLYCAB_FOLDER_ID` | `POLYCAB_FOLDER_ID` | WorkDrive folder for Polycab CNs |
-| `FILES_DIR` | `FILES_DIR` | `files/polycab/cn` |
+| `FILES_DIR` | `FILES_DIR` | `input_files/polycab/cn` |
 | `POLYCAB_LEDGER_PATH` | `POLYCAB_LEDGER_PATH` | Path to Polycab `.xls` ledger |
 | `POLYCAB_VENDOR_ID` | `POLYCAB_VENDOR_ID` | Zoho Books contact ID for Polycab |
 | `ZOHO_RSO_CN_ITEM_ID` | `ZOHO_RSO_CN_ITEM_ID` | Item ID for RSO credit notes |
@@ -184,13 +220,36 @@ All values loaded from `.env` at repo root. Defaults shown below.
 | `BANK_ACCOUNT_HDFC` | `BANK_ACCOUNT_HDFC` | HDFC bank account ID in Zoho Books |
 | `GSTIN_TO_VENDOR_ID` | `GSTIN_TO_VENDOR_ID` | JSON dict: GSTIN string → vendor ID |
 
+
+---
+
+## core/exceptions.py & core/models.py — Exceptions and Models
+
+### Custom Exceptions
+
+All custom exceptions inherit from `ZohoUsableError` and a standard Python exception to preserve standard catchability in client code.
+
+| Exception | Base Class | Description |
+|---|---|---|
+| `ZohoUsableError` | `Exception` | Base exception for all errors in this package. |
+| `ZohoAuthError` | `ZohoUsableError`, `ValueError` | Raised when access token retrieval or Zoho client initialization fails. |
+| `LedgerParsingError` | `ZohoUsableError`, `ValueError` | Raised when vendor ledger or GSTR-2B file parsing fails. |
+| `LedgerNotImplementedError` | `LedgerParsingError`, `NotImplementedError` | Raised when a specific vendor key has no cleaner implementation. |
+| `ReconciliationError` | `ZohoUsableError`, `ValueError` | Raised when reconciliation or matching calculations encounter configuration errors. |
+
+### Dot-Accessible Dictionary (DotDict)
+
+The `DotDict` class is a subclass of the native `dict` that enables dot-notation (attribute) access for nested dictionaries and matching collections, while remaining 100% compatible with standard dict key lookups.
+
+All reconciliation and matching functions wrap their results in `DotDict` (e.g. `results.sales_invoice.matches[0][0].date`).
+
 ---
 
 ## Scripts (not importable — run directly)
 
 | Script | Purpose | Key args / behaviour |
 |---|---|---|
-| `scripts/reconciliation/convert_zeiss_pdf.py` | Convert Carl Zeiss PDF ledgers to CSV and consolidate | Parses all `.pdf` statements in `files/zeiss/ledgers/` → `files/zeiss/Consolidated_Zeiss_Statements_2024_2025.csv` |
+| `scripts/reconciliation/convert_zeiss_pdf.py` | Convert Carl Zeiss PDF ledgers to CSV and consolidate | Parses all `.pdf` statements in `input_files/zeiss/ledgers/` → `input_files/zeiss/Consolidated_Zeiss_Statements_2024_2025.csv` |
 | `scripts/reconciliation/reconcile_vendor.py` | Reconcile Polycab vendor account (bills, payments, credits) vs ledger | Uses `Config.POLYCAB_VENDOR_ID`, `Config.POLYCAB_LEDGER_PATH` |
 | `scripts/reconciliation/reconcile_zeiss.py` | Reconcile Zeiss vendor account vs ledger | Uses `Config.ZEISS_VENDOR_ID`, `Config.ZEISS_LEDGER_PATH` |
 | `scripts/reconciliation/reconcile_bank.py` | Bank statement ↔ vendor ledger receipts | `reconcile_account(client, account_id, account_name, ledger_path, ...)` |
@@ -230,7 +289,7 @@ from zoho_usable_functions import reconcile_vendor_account
 
 tokens = fetch_access_tokens()
 client = get_books_client(token=tokens["access_token"])
-result = reconcile_vendor_account(client, vendor_id="...", vendor_ledger_path="files/polycab/ledger/...")
+result = reconcile_vendor_account(client, vendor_id="...", vendor_ledger_path="input_files/polycab/ledger/...")
 ```
 
 **Typical credit memo flow:**
@@ -242,9 +301,9 @@ tokens = fetch_access_tokens()
 books = get_books_client(token=tokens["access_token"])
 wd    = get_workdrive_client(token=tokens["workdrive_access_token"])
 
-vc    = create_vendor_credit_from_pdf(books, "files/polycab/cn/CM-12345.pdf")
-upload_vendor_credit_attachment(books, vc["vendor_credit_id"], "files/polycab/cn/CM-12345.pdf")
-upload_to_workdrive(wd, Config.POLYCAB_FOLDER_ID, "files/polycab/cn/CM-12345.pdf")
+vc    = create_vendor_credit_from_pdf(books, "input_files/polycab/cn/CM-12345.pdf")
+upload_vendor_credit_attachment(books, vc["vendor_credit_id"], "input_files/polycab/cn/CM-12345.pdf")
+upload_to_workdrive(wd, Config.POLYCAB_FOLDER_ID, "input_files/polycab/cn/CM-12345.pdf")
 ```
 
 ---
@@ -253,14 +312,14 @@ upload_to_workdrive(wd, Config.POLYCAB_FOLDER_ID, "files/polycab/cn/CM-12345.pdf
 
 ### 1. Process Polycab Credit Memos (batch — most common task)
 
-Drop all `CM-*.pdf` or `CN-*.pdf` files into `files/polycab/cn/`, then run the script.
+Drop all `CM-*.pdf` or `CN-*.pdf` files into `input_files/polycab/cn/`, then run the script.
 The script is **idempotent** — it checks existing Zoho Books vendor credits and WorkDrive files before acting,
 so re-running is always safe.
 
 **Steps performed automatically by the script:**
 1. Fetch existing vendor credits from Zoho Books → build a skip-set to avoid duplicates
 2. Fetch existing files in the WorkDrive folder → build a skip-set to avoid re-uploads
-3. For each PDF in `files/polycab/cn/` (files named `CM-*` or `CN-*`):
+3. For each PDF in `input_files/polycab/cn/` (files named `CM-*` or `CN-*`):
    - Parse PDF → extract CN number, date, amount, description
    - Classify as RSO CN or Scheme CN (based on presence of `RSO Number :` in PDF text)
    - If CN number not already in Zoho Books → POST vendor credit
@@ -275,7 +334,7 @@ uv run python scripts/credit_memos/process_credit_memo.py
 **Optional overrides:**
 ```bash
 uv run python scripts/credit_memos/process_credit_memo.py \
-  --files-dir files/polycab/cn \
+  --files-dir input_files/polycab/cn \
   --folder-id <workdrive_folder_id> \
   --vendor-id <zoho_vendor_id>
 ```
@@ -284,7 +343,7 @@ uv run python scripts/credit_memos/process_credit_memo.py \
 
 ### 2. Reconcile Polycab Vendor Account (bills, payments, credits vs ledger)
 
-Place the Polycab Excel ledger (`.xls`) in `files/polycab/ledger/` and set `POLYCAB_LEDGER_PATH` in `.env`.
+Place the Polycab Excel ledger (`.xls`) in `input_files/polycab/ledger/` and set `POLYCAB_LEDGER_PATH` in `.env`.
 
 **Steps performed automatically:**
 1. Read ledger file → detect date range from header rows
@@ -301,7 +360,7 @@ uv run python scripts/reconciliation/reconcile_vendor.py
 ```bash
 uv run python scripts/reconciliation/reconcile_vendor.py \
   --vendor-id <id> \
-  --ledger-path files/polycab/ledger/277498_ReconciliationLedger_....xls \
+  --ledger-path input_files/polycab/ledger/277498_ReconciliationLedger_....xls \
   --date-tolerance 20 \
   --amount-tolerance 0.05
 ```
@@ -312,7 +371,7 @@ uv run python scripts/reconciliation/reconcile_vendor.py \
 
 ### 3. Reconcile Zeiss Vendor Account (CSV statement vs Zoho Books)
 
-Place the Zeiss CSV in `files/zeiss/` and set `ZEISS_LEDGER_PATH` in `.env`.
+Place the Zeiss CSV in `input_files/zeiss/` and set `ZEISS_LEDGER_PATH` in `.env`.
 
 **Run (uses defaults from `.env`):**
 ```bash
@@ -323,7 +382,7 @@ uv run python scripts/reconciliation/reconcile_zeiss.py
 ```bash
 uv run python scripts/reconciliation/reconcile_zeiss.py \
   --vendor-id <id> \
-  --ledger-path files/zeiss/ZeissOct2025_Statement.csv \
+  --ledger-path input_files/zeiss/ZeissOct2025_Statement.csv \
   --date-tolerance 7 \
   --amount-tolerance 0.05
 ```
@@ -345,7 +404,7 @@ uv run python scripts/reconciliation/reconcile_bank.py
 **Optional overrides:**
 ```bash
 uv run python scripts/reconciliation/reconcile_bank.py \
-  --ledger-path files/polycab/ledger/277498_....xls \
+  --ledger-path input_files/polycab/ledger/277498_....xls \
   --date-tolerance 10 \
   --amount-tolerance 0.0
 ```
@@ -359,7 +418,7 @@ Use when you don't know which bank account has matches — scans all `bank`/`pay
 **Run:**
 ```bash
 uv run python scripts/reconciliation/run_reconciliation.py \
-  --ledger-path files/polycab/ledger/277498_....xls
+  --ledger-path input_files/polycab/ledger/277498_....xls
 ```
 
 ---
@@ -368,7 +427,7 @@ uv run python scripts/reconciliation/run_reconciliation.py \
 
 ```python
 from zoho_usable_functions import parse_polycab_credit_memo
-details = parse_polycab_credit_memo("files/polycab/cn/CM-12345.pdf")
+details = parse_polycab_credit_memo("input_files/polycab/cn/CM-12345.pdf")
 print(details)
 # {"vendor_credit_number": "...", "date": "...", "amount": ..., "description": "...", "raw_text": "..."}
 ```
@@ -379,8 +438,8 @@ print(details)
 
 ```python
 from zoho_usable_functions import clean_ledger_file, get_ledger_metadata
-meta    = get_ledger_metadata("files/polycab/ledger/277498_....xls")
-entries = clean_ledger_file("files/polycab/ledger/277498_....xls")
+meta    = get_ledger_metadata("input_files/polycab/ledger/277498_....xls")
+entries = clean_ledger_file("input_files/polycab/ledger/277498_....xls")
 print(meta)       # {"start_date": "...", "end_date": "...", "party_name": "...", "opening_balance": ...}
 print(entries[0]) # First transaction dict
 ```

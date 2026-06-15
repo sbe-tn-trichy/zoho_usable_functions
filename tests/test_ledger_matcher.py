@@ -424,9 +424,9 @@ class TestReconcileVendorAccount(unittest.TestCase):
 class TestReconcileVendor(unittest.TestCase):
     def setUp(self):
         self.books_client = MagicMock()
-        self.ledger_path_polycab = "files/polycab/ledger/277498_Statement.xls"
-        self.ledger_path_zeiss = "files/zeiss/Statement.csv"
-        self.ledger_path_unknown = "files/unknown/ledger.xls"
+        self.ledger_path_polycab = "input_files/polycab/ledger/277498_Statement.xls"
+        self.ledger_path_zeiss = "input_files/zeiss/Statement.csv"
+        self.ledger_path_unknown = "input_files/unknown/ledger.xls"
 
     @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
     @patch("zoho_usable_functions.core.auth.get_books_client")

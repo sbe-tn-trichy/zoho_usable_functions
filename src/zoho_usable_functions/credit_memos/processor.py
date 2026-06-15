@@ -125,65 +125,55 @@ def parse_polycab_credit_memo(pdf_path: str) -> Dict[str, Any]:
         "raw_text": all_text
     }
 
+_VENDOR_CACHE = {}
+_CHART_OF_ACCOUNTS_CACHE = None
+
 def resolve_vendor_id(books_client: Any, name: str) -> Optional[str]:
     """Finds contact ID for a vendor by name in Zoho Books."""
+    if name in _VENDOR_CACHE:
+        return _VENDOR_CACHE[name]
     res = books_client.contacts.list(params={"contact_name": name})
     contacts = res.get("contacts", [])
     if contacts:
-        return contacts[0].get("contact_id")
+        vendor_id = contacts[0].get("contact_id")
+        _VENDOR_CACHE[name] = vendor_id
+        return vendor_id
     if "polycab" in name.lower():
         return Config.POLYCAB_VENDOR_ID
     return None
 
 def resolve_account_id(books_client: Any, name: str) -> Optional[str]:
     """Finds account ID by name query in Zoho Books chart of accounts."""
-    res = books_client.chart_of_accounts.list()
-    accounts = res.get("chartofaccounts", [])
-    for a in accounts:
+    global _CHART_OF_ACCOUNTS_CACHE
+    if _CHART_OF_ACCOUNTS_CACHE is None:
+        res = books_client.chart_of_accounts.list()
+        _CHART_OF_ACCOUNTS_CACHE = res.get("chartofaccounts", [])
+    for a in _CHART_OF_ACCOUNTS_CACHE:
         if name.lower() in a.get("account_name", "").lower():
             return a.get("account_id")
-    for a in accounts:
+    for a in _CHART_OF_ACCOUNTS_CACHE:
         if "purchase discounts" in a.get("account_name", "").lower():
             return a.get("account_id")
     return None
 
-def resolve_associated_bill_id(books_client: Any, vendor_id: str, credit_note_date_str: str) -> Optional[str]:
-    """
-    Finds an existing bill for this vendor that has a date on or before the credit note date.
-    This is required in Zoho Books India to associate debit notes/credit notes for GST compliance.
-    """
-    bills = books_client.bills.list_all(params={"vendor_id": vendor_id})
-    valid_bills = []
-    
-    cn_date = datetime.strptime(credit_note_date_str, "%Y-%m-%d").date()
-    for b in bills:
-        b_date_str = b.get("date")
-        if b_date_str:
-            try:
-                b_date = datetime.strptime(b_date_str, "%Y-%m-%d").date()
-                if b_date <= cn_date:
-                    valid_bills.append((b_date, b.get("bill_id")))
-            except ValueError:
-                pass
-                
-    if valid_bills:
-        valid_bills.sort(key=lambda x: x[0], reverse=True)
-        return valid_bills[0][1]
-    return None
 
 def resolve_item_id(pdf_text: str) -> str:
     """
     Classifies a credit memo as a Scheme CN or RSO CN based on raw PDF text.
     Returns the corresponding Zoho Books Item ID.
+
+    RSO CN rule: 'RSO Number' field must contain a purely-numeric value.
+    Adjacent PDF fields like 'E-Way Bill No' must NOT be matched.
     """
     text_lower = pdf_text.lower()
-    
-    # Check if RSO Number field is present and not empty (must be digits)
+
+    # Only match if the value after 'RSO Number :' is a non-empty digit sequence.
+    # Using \d+ (not \S+) prevents capturing adjacent field names like 'E-Way'.
     rso_match = re.search(r"RSO\s+(?:Number|No\.?)\s*:\s*(\d+)", pdf_text, re.IGNORECASE)
     if rso_match and rso_match.group(1).strip():
         logger.info(f"Classified CN as RSO CN based on RSO Number: '{rso_match.group(1)}'")
         return Config.ZOHO_RSO_CN_ITEM_ID
-        
+
     if "return type without reference" in text_lower or "ldo01" in text_lower or "llp01" in text_lower:
         return Config.ZOHO_RSO_CN_ITEM_ID
     return Config.ZOHO_SCHEME_CN_ITEM_ID

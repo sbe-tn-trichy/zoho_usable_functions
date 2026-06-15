@@ -51,8 +51,8 @@ def main():
         return
 
     # Reconcile HDFC-SBE and IDFC-SBE
-    reconcile_account(client, "1094368000045308003", "IDFC-SBE", args.ledger_path, args.date_tolerance, args.amount_tolerance)
-    reconcile_account(client, "1094368000000081927", "HDFC-SBE", args.ledger_path, args.date_tolerance, args.amount_tolerance)
+    reconcile_account(client, Config.BANK_ACCOUNT_IDFC, "IDFC-SBE", args.ledger_path, args.date_tolerance, args.amount_tolerance)
+    reconcile_account(client, Config.BANK_ACCOUNT_HDFC, "HDFC-SBE", args.ledger_path, args.date_tolerance, args.amount_tolerance)
 
 if __name__ == "__main__":
     main()

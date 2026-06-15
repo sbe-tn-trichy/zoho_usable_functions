@@ -138,4 +138,5 @@ Thumbs.db
 .env
 files/
 logs/
+output/
 uv.lock

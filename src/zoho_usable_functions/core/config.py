@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -34,3 +35,25 @@ class Config:
     ZOHO_RSO_CN_ITEM_ID = os.getenv("ZOHO_RSO_CN_ITEM_ID", "1094368000028456138")
     ZOHO_SCHEME_CN_ITEM_ID = os.getenv("ZOHO_SCHEME_CN_ITEM_ID", "1094368000000311103")
     ZOHO_GST0_TAX_ID = os.getenv("ZOHO_GST0_TAX_ID", "1094368000000014279")
+    ZOHO_TAX_SETTINGS_ID = os.getenv("ZOHO_TAX_SETTINGS_ID", "1094368000000000271")
+
+    # Zeiss
+    ZEISS_VENDOR_ID = os.getenv("ZEISS_VENDOR_ID", "1094368000002502821")
+    ZEISS_LEDGER_PATH = os.getenv(
+        "ZEISS_LEDGER_PATH",
+        str(root_dir / "files" / "zeiss" / "ZeissOct2025_Statement - ZeissOct2025_Statement.csv")
+    )
+
+    # Location / Branch Config
+    EXPECTED_LOCATION_ID = os.getenv("EXPECTED_LOCATION_ID", "1094368000000443455")
+    EXPECTED_LOCATION_NAME = os.getenv("EXPECTED_LOCATION_NAME", "Sri Bharath Electricals")
+
+    # Bank Account IDs
+    BANK_ACCOUNT_IDFC = os.getenv("BANK_ACCOUNT_IDFC", "1094368000045308003")
+    BANK_ACCOUNT_HDFC = os.getenv("BANK_ACCOUNT_HDFC", "1094368000000081927")
+
+    # GSTIN Map
+    try:
+        GSTIN_TO_VENDOR_ID = json.loads(os.getenv("GSTIN_TO_VENDOR_ID", "{}"))
+    except Exception:
+        GSTIN_TO_VENDOR_ID = {}

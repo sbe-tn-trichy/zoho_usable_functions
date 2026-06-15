@@ -148,7 +148,11 @@ class TestMatchLedgerEntries(unittest.TestCase):
         self.assertEqual(results["unmatched_vendor_payments"][0]["payment_id"], "vp_04")
 
 from unittest.mock import patch
-from zoho_usable_functions.reconciliation.matcher import match_bank_with_vendor_ledger, reconcile_vendor_account
+from zoho_usable_functions.reconciliation.matcher import (
+    match_bank_with_vendor_ledger,
+    reconcile_vendor_account,
+    reconcile_vendor
+)
 
 class TestMatchBankWithVendorLedger(unittest.TestCase):
     def setUp(self):
@@ -157,9 +161,14 @@ class TestMatchBankWithVendorLedger(unittest.TestCase):
         self.ledger_path = "dummy_ledger.xls"
 
     @patch("os.path.exists")
-    @patch("zoho_usable_functions.reconciliation.matcher.clean_ledger_file")
-    def test_match_bank_with_vendor_ledger(self, mock_clean, mock_exists):
+    @patch("zoho_usable_functions.reconciliation._bank_matcher.get_ledger_metadata")
+    @patch("zoho_usable_functions.reconciliation._bank_matcher.clean_ledger_file")
+    def test_match_bank_with_vendor_ledger(self, mock_clean, mock_metadata, mock_exists):
         mock_exists.return_value = True
+        mock_metadata.return_value = {
+            "start_date": "2026-01-01",
+            "end_date": "2026-01-10",
+        }
         
         # Setup mock bank transactions (withdrawals)
         bank_transactions = [
@@ -216,7 +225,11 @@ class TestMatchBankWithVendorLedger(unittest.TestCase):
             amount_tolerance=0.0
         )
         
-        self.books_client.bank_transactions.list_all.assert_called_once_with(params={"account_id": self.bank_account_id})
+        self.books_client.bank_transactions.list_all.assert_called_once_with(params={
+            "account_id": self.bank_account_id,
+            "from_date": "2025-12-25",
+            "to_date": "2026-01-17"
+        })
         mock_clean.assert_called_once_with(self.ledger_path)
         
         # tx_02 matches the ledger Receipt
@@ -239,8 +252,8 @@ class TestReconcileVendorAccount(unittest.TestCase):
         self.ledger_path = "dummy_ledger.xls"
 
     @patch("os.path.exists")
-    @patch("zoho_usable_functions.reconciliation.matcher.get_ledger_metadata")
-    @patch("zoho_usable_functions.reconciliation.matcher.clean_ledger_file")
+    @patch("zoho_usable_functions.reconciliation._vendor_reconciler.get_ledger_metadata")
+    @patch("zoho_usable_functions.reconciliation._vendor_reconciler.clean_ledger_file")
     def test_reconcile_vendor_account(self, mock_clean, mock_metadata, mock_exists):
         mock_exists.return_value = True
         mock_metadata.return_value = {
@@ -407,6 +420,87 @@ class TestReconcileVendorAccount(unittest.TestCase):
         self.assertEqual(debit_memo["matches"][0][1]["transaction_no"], "DB-111")
         self.assertEqual(len(debit_memo["unmatched_books"]), 0)
         self.assertEqual(len(debit_memo["unmatched_ledger"]), 0)
+
+class TestReconcileVendor(unittest.TestCase):
+    def setUp(self):
+        self.books_client = MagicMock()
+        self.ledger_path_polycab = "files/polycab/ledger/277498_Statement.xls"
+        self.ledger_path_zeiss = "files/zeiss/Statement.csv"
+        self.ledger_path_unknown = "files/unknown/ledger.xls"
+
+    @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
+    @patch("zoho_usable_functions.core.auth.get_books_client")
+    def test_reconcile_vendor_with_all_explicit_params(self, mock_get_client, mock_reconcile_account):
+        mock_reconcile_account.return_value = {"status": "success"}
+
+        res = reconcile_vendor(
+            vendor_ledger_path=self.ledger_path_polycab,
+            vendor_id="vendor_explicit",
+            date_tolerance_days=10,
+            amount_tolerance=0.01,
+            books_client=self.books_client
+        )
+
+        mock_reconcile_account.assert_called_once_with(
+            books_client=self.books_client,
+            vendor_id="vendor_explicit",
+            vendor_ledger_path=self.ledger_path_polycab,
+            date_tolerance_days=10,
+            amount_tolerance=0.01
+        )
+        self.assertEqual(res, {"status": "success"})
+        mock_get_client.assert_not_called()
+
+    @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
+    @patch("zoho_usable_functions.core.auth.get_books_client")
+    def test_reconcile_vendor_auto_detect_polycab(self, mock_get_client, mock_reconcile_account):
+        from zoho_usable_functions.core.config import Config
+        mock_reconcile_account.return_value = {"status": "success"}
+        mock_get_client.return_value = self.books_client
+
+        res = reconcile_vendor(
+            vendor_ledger_path=self.ledger_path_polycab
+        )
+
+        mock_reconcile_account.assert_called_once_with(
+            books_client=self.books_client,
+            vendor_id=Config.POLYCAB_VENDOR_ID,
+            vendor_ledger_path=self.ledger_path_polycab,
+            date_tolerance_days=7,
+            amount_tolerance=0.0
+        )
+        mock_get_client.assert_called_once()
+        self.assertEqual(res, {"status": "success"})
+
+    @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
+    @patch("zoho_usable_functions.core.auth.get_books_client")
+    def test_reconcile_vendor_auto_detect_zeiss(self, mock_get_client, mock_reconcile_account):
+        from zoho_usable_functions.core.config import Config
+        mock_reconcile_account.return_value = {"status": "success"}
+        mock_get_client.return_value = self.books_client
+
+        res = reconcile_vendor(
+            vendor_ledger_path=self.ledger_path_zeiss,
+            books_client=self.books_client
+        )
+
+        mock_reconcile_account.assert_called_once_with(
+            books_client=self.books_client,
+            vendor_id=Config.ZEISS_VENDOR_ID,
+            vendor_ledger_path=self.ledger_path_zeiss,
+            date_tolerance_days=7,
+            amount_tolerance=0.0
+        )
+        mock_get_client.assert_not_called()
+        self.assertEqual(res, {"status": "success"})
+
+    def test_reconcile_vendor_auto_detect_unknown_fails(self):
+        with self.assertRaises(ValueError):
+            reconcile_vendor(
+                vendor_ledger_path=self.ledger_path_unknown,
+                books_client=self.books_client
+            )
+
 
 
 

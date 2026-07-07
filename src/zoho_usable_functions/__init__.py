@@ -7,6 +7,7 @@ from .reconciliation.matcher import (
 from .reconciliation.cleaner import clean_ledger_file, get_ledger_metadata
 from .reconciliation.gstr2b import reconcile_gstr2b_with_books, clean_gstr2b_xlsx
 from .reconciliation.zeiss_pdf import parse_zeiss_pdf_statement, consolidate_zeiss_statements
+from .reconciliation.stock import find_negative_stock_items
 from .credit_memos.processor import (
     parse_polycab_credit_memo,
     create_vendor_credit_from_pdf,
@@ -34,6 +35,7 @@ __all__ = [
     "clean_gstr2b_xlsx",
     "parse_zeiss_pdf_statement",
     "consolidate_zeiss_statements",
+    "find_negative_stock_items",
     "parse_polycab_credit_memo",
     "create_vendor_credit_from_pdf",
     "upload_vendor_credit_attachment",

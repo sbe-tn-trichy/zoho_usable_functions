@@ -42,6 +42,8 @@ zoho_usable_functions/
 │   │   ├── reconcile_zeiss.py       # Vendor account full reconciliation (Zeiss)
 │   │   └── run_reconciliation.py    # Generic reconciliation entry point
 │   ├── reconcile_gstr2b.py          # GSTR-2B reconciliation (standalone)
+│   ├── export_fan_purchase_items.py # Export and categorize fan purchase items to CSV
+│   ├── propose_groups.py            # Propose group assignments for active items without group
 │   └── credit_memos/                # Credit memo processing scripts
 ├── input_files/                           # Input data files (ledgers, PDFs) — gitignored
 │   ├── polycab/ledger/              # Polycab Excel ledger files (.xls)
@@ -156,6 +158,14 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 
 ---
 
+### reconciliation.stock
+
+| Function | Signature | Returns | Notes |
+|---|---|---|---|
+| `find_negative_stock_items` | `(books_client, location_name="SBE", purchase_account_id=None)` | `List[Dict]` | Finds all items with negative accounting stock in the specified location, optionally filtered by purchase account ID. |
+
+---
+
 ### credit_memos.processor
 
 | Function | Signature | Returns | Notes |
@@ -255,6 +265,9 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `scripts/reconciliation/reconcile_bank.py` | Bank statement ↔ vendor ledger receipts | `reconcile_account(client, account_id, account_name, ledger_path, ...)` |
 | `scripts/reconciliation/run_reconciliation.py` | Generic reconciliation entry point | Calls `reconcile_vendor_account` |
 | `scripts/reconcile_gstr2b.py` | GSTR-2B vs Zoho Books reconciliation | Standalone, no library dependency |
+| `scripts/export_fan_purchase_items.py` | Export and categorize all items in "Polycab Fan Purchase" account to CSV | Query Zoho Books API for items under the account, apply heuristics for type/tier/sweep/model/color, and save to `output/fan_purchase_items.csv` and `D:/workplace/fan_purchase_items.csv` |
+| `scripts/propose_groups.py` | Propose group assignments for active items without group | Query Zoho Books API for current item groups, match active items without groups, and save to `output/proposed_group_assignments.csv` and `D:/workplace/proposed_group_assignments.csv` |
+| `scripts/reconciliation/find_negative_stock.py` | Find items with negative stock in SBE | Audits and saves items with negative stock to `output/negative_stock_sbe.csv` and `D:/workplace/negative_stock_sbe.csv` (accepts `--location` override) |
 
 ---
 
@@ -468,6 +481,9 @@ uv run python scripts/<subdir>/<script_name>.py [--arg value ...]
 | Reconcile Zeiss vendor | `uv run python scripts/reconciliation/reconcile_zeiss.py` |
 | Reconcile bank accounts vs Polycab ledger | `uv run python scripts/reconciliation/reconcile_bank.py` |
 | Scan all bank accounts (discovery) | `uv run python scripts/reconciliation/run_reconciliation.py` |
+| Export & categorize fan purchase items to CSV | `uv run python scripts/export_fan_purchase_items.py` |
+| Propose group assignments for items without group | `uv run python scripts/propose_groups.py` |
+| Find items with negative stock in location SBE | `uv run python scripts/reconciliation/find_negative_stock.py` |
 
 ### What INDEX.md Covers for Execution
 

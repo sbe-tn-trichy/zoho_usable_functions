@@ -81,7 +81,7 @@ class TestCreditMemoProcessor(unittest.TestCase):
         }
         mock_resolve_vend.return_value = "vendor_99"
         mock_resolve_item.return_value = "item_123"
-        books_client.request.return_value = {
+        books_client.vendor_credits.create.return_value = {
             "vendorcredit": {"vendor_credit_id": "vc_100"}
         }
         
@@ -89,9 +89,8 @@ class TestCreditMemoProcessor(unittest.TestCase):
         res = create_vendor_credit_from_pdf(books_client, "dummy.pdf")
         self.assertEqual(res["vendor_credit_id"], "vc_100")
         
-        books_client.request.assert_called_once()
-        call_args = books_client.request.call_args
-        payload = call_args[1]['json']
+        books_client.vendor_credits.create.assert_called_once()
+        payload = books_client.vendor_credits.create.call_args.args[0]
         self.assertEqual(payload["vendor_id"], "vendor_99")
         self.assertEqual(payload["vendor_credit_number"], "2603233393")
         self.assertEqual(payload["reference_invoice_type"], "registered")
@@ -102,39 +101,36 @@ class TestCreditMemoProcessor(unittest.TestCase):
         self.assertNotIn("tax_id", payload["line_items"][0])
         
         # Test Case 2: Bill number explicitly in PDF
-        books_client.request.reset_mock()
+        books_client.vendor_credits.create.reset_mock()
         mock_parse.return_value["raw_text"] = "Original Tax Inv. No. : BILL999\n"
         mock_resolve_bill.return_value = "bill_777"
         
         res = create_vendor_credit_from_pdf(books_client, "dummy.pdf")
-        books_client.request.assert_called_once()
+        books_client.vendor_credits.create.assert_called_once()
         mock_resolve_bill.assert_called_once_with(books_client, "vendor_99", "BILL999")
-        payload = books_client.request.call_args[1]['json']
+        payload = books_client.vendor_credits.create.call_args.args[0]
         self.assertEqual(payload["bill_id"], "bill_777")
         self.assertNotIn("reference_invoice_type", payload)
         
         # Test Case 3: RSO CN description override with RSO Number alone
         from zoho_usable_functions.core.config import Config
-        books_client.request.reset_mock()
+        books_client.vendor_credits.create.reset_mock()
         mock_resolve_item.return_value = Config.ZOHO_RSO_CN_ITEM_ID
         mock_parse.return_value["raw_text"] = "RSO Number : 25267008565 E-Way Bill No :\n"
         
         res = create_vendor_credit_from_pdf(books_client, "dummy.pdf")
-        books_client.request.assert_called_once()
-        payload = books_client.request.call_args[1]['json']
+        books_client.vendor_credits.create.assert_called_once()
+        payload = books_client.vendor_credits.create.call_args.args[0]
         self.assertEqual(payload["line_items"][0]["description"], "25267008565")
         self.assertEqual(payload["line_items"][0]["item_id"], Config.ZOHO_RSO_CN_ITEM_ID)
 
-    @patch("os.path.exists")
-    @patch("builtins.open")
-    def test_upload_vendor_credit_attachment(self, mock_open, mock_exists):
-        mock_exists.return_value = True
+    def test_upload_vendor_credit_attachment(self):
         books_client = MagicMock()
-        books_client.request.return_value = {"status": "success"}
+        books_client.vendor_credits.add_attachment.return_value = {"status": "success"}
         
         res = upload_vendor_credit_attachment(books_client, "vc_100", "dummy.pdf")
         self.assertEqual(res["status"], "success")
-        books_client.request.assert_called_once()
+        books_client.vendor_credits.add_attachment.assert_called_once_with("vc_100", "dummy.pdf")
 
     def test_upload_to_workdrive(self):
         wd_client = MagicMock()

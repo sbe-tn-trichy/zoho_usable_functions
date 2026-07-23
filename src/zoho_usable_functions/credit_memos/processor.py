@@ -246,19 +246,12 @@ def create_vendor_credit_from_pdf(
     else:
         payload["reference_invoice_type"] = "registered"
     
-    res = books_client.request('POST', 'vendorcredits', json=payload)
+    res = books_client.vendor_credits.create(payload)
     return res.get("vendor_credit", res.get("vendorcredit", res))
 
 def upload_vendor_credit_attachment(books_client: Any, vendor_credit_id: str, pdf_path: str) -> Dict[str, Any]:
     """Attaches PDF file to a Vendor Credit in Zoho Books."""
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"File not found: {pdf_path}")
-    filename = os.path.basename(pdf_path)
-    with open(pdf_path, 'rb') as f:
-        files = {
-            'attachment': (filename, f, 'application/pdf')
-        }
-        return books_client.request('POST', f"vendorcredits/{vendor_credit_id}/attachment", files=files)
+    return books_client.vendor_credits.add_attachment(vendor_credit_id, pdf_path)
 
 def upload_to_workdrive(wd_client: Any, folder_id: str, pdf_path: str) -> Dict[str, Any]:
     """Uploads PDF file to Zoho WorkDrive folder."""
@@ -424,21 +417,11 @@ def check_vendor_credits_location(
 
     logger.info(f"Fetching ALL vendor credits for vendor_id={vendor_id}...")
     
-    all_credits = []
-    page = 1
-    while True:
-        res = books_client.request('GET', 'vendorcredits', params={
-            'vendor_id': vendor_id,
-            'page': page,
-            'per_page': 200
-        })
-        records = res.get('vendor_credits', res.get('vendorcredits', []))
-        all_credits.extend(records)
-        has_more = res.get('page_context', {}).get('has_more_page', False)
-        logger.info(f"  Page {page}: fetched {len(records)} credits (total so far: {len(all_credits)})")
-        if not has_more:
-            break
-        page += 1
+    all_credits = books_client.vendor_credits.list_all(
+        params={"vendor_id": vendor_id},
+        resource_key="vendor_credits",
+    )
+    logger.info("Fetched %s vendor credits.", len(all_credits))
         
     mismatched = []
     no_location = []
@@ -476,4 +459,3 @@ def check_vendor_credits_location(
         "no_location": no_location,
         "total_checked": len(all_credits)
     }
-

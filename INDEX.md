@@ -1,5 +1,10 @@
 # zoho_usable_functions — Code Index
 
+> **PROJECT SPLIT**: Confirmed reconciliation and credit-memo modules have been
+> promoted to the sibling `zoho_sdk_advanced` project. This repository is the
+> trial/incubation project. Compatibility copies remain temporarily so existing
+> scripts do not break during migration.
+
 > **AI AGENT INSTRUCTION**: Read this file first before opening any source file.
 > It maps the entire codebase. Only open source files when you need implementation details beyond what is here.
 
@@ -180,7 +185,7 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 |---|---|---|---|
 | `parse_polycab_credit_memo` | `(pdf_path: str)` | `Dict` | Extracts CN number, date, amount, description from Polycab PDF. Uses `pdfplumber`. |
 | `create_vendor_credit_from_pdf` | `(books_client, pdf_path, vendor_name="Polycab", account_name="Polycab Scheme - Expense")` | `Dict` | Parses PDF → classifies RSO/Scheme → POSTs vendor credit to Zoho Books. |
-| `upload_vendor_credit_attachment` | `(books_client, vendor_credit_id: str, pdf_path: str)` | `Dict` | Attaches PDF file to a Vendor Credit in Zoho Books. |
+| `upload_vendor_credit_attachment` | `(books_client, vendor_credit_id: str, pdf_path: str)` | `Dict` | Compatibility wrapper over the SDK Vendor Credits attachment action. |
 | `upload_to_workdrive` | `(wd_client, folder_id: str, pdf_path: str)` | `Dict` | Uploads PDF to Zoho WorkDrive folder. |
 | `process_polycab_credit_memos` | `(books_client=None, wd_client=None, files_dir=None, folder_id=None, vendor_id=None)` | `Dict` | Batch process Polycab credit memo PDFs with auto-authentication/initialization. |
 | `check_vendor_credits_location` | `(books_client=None, vendor_id=None, expected_location_id=None)` | `Dict` | Audits all vendor credits for correct/mismatched/unset location settings. Auto-initializes. |
@@ -207,14 +212,19 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 
 | Function | Signature | Returns | Notes |
 |---|---|---|---|
-| `fetch_items_for_purchase_account` | `(client, purchase_account_id, status="all")` | `List[Dict]` | Fetches Zoho Inventory items through `client.items.list_all(params={"purchase_account_id": ...})`. |
+| `fetch_items_for_purchase_account` | `(client, purchase_account_id, status="all")` | `List[Dict]` | Compatibility wrapper over `client.items.list_by_purchase_account`. |
+| `fetch_inventory_items` | `(client, purchase_account_id=None, max_pages=None, verbose=False)` | `List[Dict]` | Generic SDK-backed fetch with optional bounded pagination for previews/test runs. |
 | `items_to_frame` | `(items, match_key="sku")` | `pandas.DataFrame` | Normalises SDK item records into a tabular frame with `MATCH_KEY` / `SKU_KEY`. |
 | `find_item_diff` | `(target_rows, existing_items, match_key="sku", compare_fields=None)` | `Dict` | Classifies target rows into missing, changed, unchanged, duplicate/blocking. Changed items are report-only in v1. |
+| `compare_items_with_inventory` | `(candidates, output_dir, *, client=None, client_factory=None, existing_items_file=None, ...)` | `Dict` | Reusable orchestration for snapshot/API loading, comparison, and report generation. |
+| `write_item_diff_outputs` | `(diff, output_dir, filename_prefix=..., report_label=..., filenames=None)` | `Dict[str, Path]` | Writes configurable missing/changed CSV and XLSX reports plus an Inventory snapshot. |
 | `build_inventory_item_payload` | `(row, defaults=None, tax_preferences=None)` | `(payload, issues)` | Generic Zoho Inventory item create-payload builder. |
-| `prepare_item_create_payloads` | `(rows, output_dir, payload_builder=..., filename_prefix=...)` | `Dict` | Writes create payload preview JSON/CSV and validation XLSX. |
+| `prepare_item_create_payloads` | `(rows, output_dir, payload_builder=..., filename_prefix=..., filename_suffix="")` | `Dict` | Writes create payload preview JSON/CSV and validation XLSX. |
+| `prepare_inventory_items_from_sheet` | `(create_xlsx, output_dir, *, sheet_name="Missing_Items", payload_builder=..., ...)` | `Dict` | Generic spreadsheet-to-payload/validation workflow. |
+| `item_sync.create_inventory_items_from_sheet` | `(create_xlsx, output_dir, *, client=None, client_factory=None, payload_builder=..., ...)` | `Dict` | Generic validated spreadsheet creation workflow with injected client/auth policy. |
 | `create_missing_inventory_items` | `(client, payloads, output_dir, results_filename=...)` | `(results, results_path)` | Creates missing items via `client.items.create(payload)` and writes a result CSV. |
 | `load_fan_candidates` | `(path=Config.FAN_STOCK_FILE, accounts=None)` | `pandas.DataFrame` | Reads the FAN stock workbook `MAIN` sheet, filters live trade SKUs, and maps rows to Zoho item-master columns. |
-| `compare_fan_items_with_inventory` | `(fan_file=Config.FAN_STOCK_FILE, output_dir=Config.FAN_OUTPUT_DIR, existing_items_file=None, client=None, accounts=None, max_pages=None, verbose=True)` | `Dict` | Compares FAN SKUs against Zoho Inventory or a cached snapshot, writes missing, changed-review, and existing-item outputs. Auto-initializes Inventory client. |
+| `compare_fan_items_with_inventory` | `(fan_file=Config.FAN_STOCK_FILE, output_dir=Config.FAN_OUTPUT_DIR, existing_items_file=None, client=None, accounts=None, max_pages=None, verbose=True)` | `Dict` | Thin FAN adapter over `compare_items_with_inventory`; supplies FAN parsing and account defaults. |
 | `prepare_inventory_item_payloads` | `(create_xlsx=default missing-items XLSX, output_dir=Config.FAN_OUTPUT_DIR)` | `Dict` | Reads edited `Missing_Items`, writes create payload preview JSON/CSV and validation XLSX. |
 | `create_inventory_items_from_sheet` | `(create_xlsx=default missing-items XLSX, output_dir=Config.FAN_OUTPUT_DIR, client=None, abort_on_blocking=True)` | `Dict` | Prepares payloads, aborts on blocking validation issues, and creates items through Zoho Inventory. |
 | `build_create_payload` | `(row)` | `(payload, issues)` | FAN compatibility wrapper around `build_inventory_item_payload`. |
@@ -250,9 +260,10 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 
 | Function | Returns |
 |---|---|
-| `fetch_access_tokens(token_url=Config.TOKEN_URL)` | `{"books": ..., "workdrive": ..., "inventory": ...}` |
+| `fetch_access_tokens(token_url=Config.TOKEN_URL)` | Runtime-only token map retrieved through SDK `HttpTokenProvider`; values are not persisted |
 | `get_books_client(token=None, org_id=Config.ORG_ID, domain=Config.DOMAIN)` | `ZohoBooksAPI` instance |
 | `get_workdrive_client(token=None, domain=Config.DOMAIN)` | `ZohoWorkdriveAPI` instance |
+| `get_analytics_client(token=None, org_id=Config.PAYMENT_ANALYTICS_ORG_ID, domain=Config.DOMAIN)` | `ZohoAnalyticsAPI` instance |
 | `get_inventory_client(token=None, org_id=Config.ORG_ID, domain=Config.DOMAIN, allow_books_token=False)` | `ZohoInventoryAPI` instance |
 
 ---
@@ -368,6 +379,10 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `scripts/books/fetch_active_customers.py` | Export active customers to CSV | Fetches all active customer contacts from Zoho Books and saves key columns to a CSV file. |
 | `scripts/books/update_customer_mobiles.py` | Update incorrect customer mobiles in bulk | Norms mobile numbers in incorrect_phone_customers.csv and PUTs updates. Supports `--execute`. |
 | `scripts/books/find_payment_anomalies.py` | Find same-day customer payment anomalies | Finds and reports accounts/days with multiple payment entries. Supports `--start-date`, `--end-date`, `--customer-id`, `--output`. |
+| `scripts/inventory/clone_zeiss_items.py` | Clone items and rename original SKUs | Fetches original items from CSV, renames original SKUs to `_old` and clones items with Zeiss accounts. Supports `--execute`. |
+| `scripts/books/update_bill_items.py` | Update bill line item IDs | Updates target bill line items to map old item IDs to newly cloned Zeiss item IDs. Supports `--execute`. |
+| `scripts/inventory/delete_old_items.py` | Cleanup old SKU items | Attempts to delete original items renamed to `_old`. If deletion fails due to transaction history, marks them inactive in bulk. Supports `--execute`. |
+| `scripts/books/find_item_transactions.py` | Find item transactions and update CSV | Overwrites the input CSV to contain only the 17 items that failed deletion, and prints/saves details of all transactions containing them. |
 
 ---
 
@@ -593,6 +608,10 @@ uv run python scripts/<subdir>/<script_name>.py [--arg value ...]
 | Fetch active customers to CSV | `uv run python scripts/books/fetch_active_customers.py` |
 | Update customer mobiles in bulk | `uv run python scripts/books/update_customer_mobiles.py [--execute]` |
 | Find same-day customer payment anomalies | `uv run python scripts/books/find_payment_anomalies.py [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD] [--customer-id ID]` |
+| Clone items and rename original SKUs | `uv run python scripts/inventory/clone_zeiss_items.py [--execute]` |
+| Update target bill line items to cloned item IDs | `uv run python scripts/books/update_bill_items.py [--execute] [--bill-id ID]` |
+| Attempt to delete or inactivate old SKU items | `uv run python scripts/inventory/delete_old_items.py [--execute]` |
+| Find item transactions and update CSV | `uv run python scripts/books/find_item_transactions.py` |
 
 ### What INDEX.md Covers for Execution
 

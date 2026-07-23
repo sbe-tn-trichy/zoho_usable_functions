@@ -22,21 +22,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def fetch_vendor_credits(books_client: Any, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Fetch all vendor credits across all pages via the raw request interface."""
-    all_credits: List[Dict[str, Any]] = []
-    page = 1
-    while True:
-        current_params = {**params, "page": page, "per_page": 200}
-        try:
-            res = books_client.request("GET", "vendorcredits", params=current_params)
-            records = res.get("vendor_credits", res.get("vendorcredits", []))
-            all_credits.extend(records)
-            if not res.get("page_context", {}).get("has_more_page", False):
-                break
-            page += 1
-        except Exception:
-            break
-    return all_credits
+    """Fetch all vendor credits through the SDK resource."""
+    return books_client.vendor_credits.list_all(params=params, resource_key="vendor_credits")
 
 
 # ---------------------------------------------------------------------------

@@ -26,9 +26,14 @@ from .inventory.fan_item_sync import (
 )
 from .inventory.item_sync import (
     build_inventory_item_payload,
+    compare_items_with_inventory,
+    create_inventory_items_from_sheet as create_generic_inventory_items_from_sheet,
     create_missing_inventory_items,
+    fetch_inventory_items,
     fetch_items_for_purchase_account,
-    find_item_diff
+    find_item_diff,
+    prepare_inventory_items_from_sheet,
+    write_item_diff_outputs,
 )
 from .payment_reconciliation.matcher import (
     PaymentReconciliationConfig,
@@ -49,7 +54,11 @@ from .core.exceptions import (
     ReconciliationError
 )
 from .core.models import DotDict
-from .core.customers import fetch_active_customers, find_same_day_payment_anomalies
+from .core.customers import (
+    fetch_active_customers,
+    find_customers_with_unused_credits,
+    find_same_day_payment_anomalies,
+)
 
 __all__ = [
     "match_ledger_entries",
@@ -76,9 +85,14 @@ __all__ = [
     "build_create_payload",
     "normalize_sku",
     "build_inventory_item_payload",
+    "compare_items_with_inventory",
+    "create_generic_inventory_items_from_sheet",
     "create_missing_inventory_items",
+    "fetch_inventory_items",
     "fetch_items_for_purchase_account",
     "find_item_diff",
+    "prepare_inventory_items_from_sheet",
+    "write_item_diff_outputs",
     "PaymentReconciliationConfig",
     "confirm_payment_matches",
     "fetch_unmatched_bank_statement_lines",
@@ -95,5 +109,6 @@ __all__ = [
     "ReconciliationError",
     "DotDict",
     "fetch_active_customers",
+    "find_customers_with_unused_credits",
     "find_same_day_payment_anomalies"
 ]

@@ -136,6 +136,8 @@ Thumbs.db
 
 # Project custom ignores
 .env
+.env.*
+!.env.example
 input_files/
 logs/
 output/

@@ -64,38 +64,33 @@ class TestCreditMemoBatch(unittest.TestCase):
     def test_check_vendor_credits_location(self):
         books_client = MagicMock()
         
-        # Mock API response returning credits
-        books_client.request.side_effect = [
+        # Mock the typed SDK Vendor Credits resource.
+        books_client.vendor_credits.list_all.return_value = [
             {
-                "vendor_credits": [
-                    {
-                        "vendor_credit_id": "vc_1",
-                        "vendor_credit_number": "VC1",
-                        "location_id": "loc_expected",
-                        "location_name": "Expected Location",
-                        "total": 100.0,
-                        "date": "2026-01-01",
-                        "status": "open"
-                    },
-                    {
-                        "vendor_credit_id": "vc_2",
-                        "vendor_credit_number": "VC2",
-                        "location_id": "loc_other",
-                        "location_name": "Other Location",
-                        "total": 200.0,
-                        "date": "2026-01-02",
-                        "status": "open"
-                    },
-                    {
-                        "vendor_credit_id": "vc_3",
-                        "vendor_credit_number": "VC3",
-                        "total": 300.0,
-                        "date": "2026-01-03",
-                        "status": "open"
-                    }
-                ],
-                "page_context": {"has_more_page": False}
-            }
+                "vendor_credit_id": "vc_1",
+                "vendor_credit_number": "VC1",
+                "location_id": "loc_expected",
+                "location_name": "Expected Location",
+                "total": 100.0,
+                "date": "2026-01-01",
+                "status": "open",
+            },
+            {
+                "vendor_credit_id": "vc_2",
+                "vendor_credit_number": "VC2",
+                "location_id": "loc_other",
+                "location_name": "Other Location",
+                "total": 200.0,
+                "date": "2026-01-02",
+                "status": "open",
+            },
+            {
+                "vendor_credit_id": "vc_3",
+                "vendor_credit_number": "VC3",
+                "total": 300.0,
+                "date": "2026-01-03",
+                "status": "open",
+            },
         ]
         
         results = check_vendor_credits_location(

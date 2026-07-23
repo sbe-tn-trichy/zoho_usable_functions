@@ -1,74 +1,27 @@
-import requests
-import json
 import logging
-from typing import Tuple, Optional, Dict
+from typing import Optional, Dict
+from zoho import HttpTokenProvider, ZohoAnalyticsAPI
 from zoho.books import ZohoBooksAPI
 from zoho.wd import ZohoWorkdriveAPI
 from zoho.inventory import ZohoInventoryAPI
 from zoho.creator import ZohoCreatorAPI
-from zoho.base_client import BaseZohoClient
 from .config import Config
 from .exceptions import ZohoAuthError
 
 logger = logging.getLogger(__name__)
 
 
-class ZohoCreatorAPIWithoutEnvironment(ZohoCreatorAPI):
-    """Creator client variant for APIs that reject the environment header."""
-
-    def request(
-        self,
-        method: str,
-        endpoint: str,
-        json: Optional[Dict] = None,
-        params: Optional[Dict] = None,
-        headers: Optional[Dict] = None,
-    ):
-        return BaseZohoClient.request(
-            self,
-            method=method,
-            endpoint=endpoint,
-            json=json,
-            params=params,
-            headers=headers,
-        )
-
 def fetch_access_tokens(token_url: str = Config.TOKEN_URL) -> Dict[str, Optional[str]]:
     """
     Queries the token service to retrieve active access tokens for Zoho services.
     """
-    logger.info(f"Retrieving access tokens from {token_url}...")
+    logger.info("Retrieving access tokens from configured token service.")
     try:
-        response = requests.post(token_url)
-        response.raise_for_status()
-        outer_data = response.json()
-        
-        books_token = None
-        workdrive_token = None
-        inventory_token = None
-        creator_token = None
-        analytics_token = None
-        
-        body_data = outer_data.get("body", outer_data)
-        if isinstance(body_data, str):
-            body_data = json.loads(body_data)
-        tokens = body_data.get("tokens", {}) if isinstance(body_data, dict) else {}
-        books_token = tokens.get("books")
-        workdrive_token = tokens.get("workdrive")
-        inventory_token = tokens.get("inventory")
-        creator_token = tokens.get("creator")
-        analytics_token = tokens.get("analytics")
-            
-        return {
-            "books": books_token,
-            "workdrive": workdrive_token,
-            "inventory": inventory_token,
-            "creator": creator_token,
-            "analytics": analytics_token,
-        }
+        tokens = HttpTokenProvider(token_url).get_tokens()
+        return {service: tokens.get(service) for service in ("books", "workdrive", "inventory", "creator", "analytics")}
     except Exception as e:
-        logger.error(f"Failed to fetch access tokens: {e}")
-        return {"books": None, "workdrive": None, "inventory": None, "creator": None, "analytics": None}
+        logger.error("Failed to fetch access tokens: %s", e)
+        raise ZohoAuthError("Failed to fetch access tokens from the configured token service.") from e
 
 def get_books_client(token: Optional[str] = None, org_id: str = Config.ORG_ID, domain: str = Config.DOMAIN) -> ZohoBooksAPI:
     """
@@ -130,11 +83,12 @@ def get_creator_client(
         if not token:
             raise ZohoAuthError("No Zoho Creator access token available.")
 
-    return ZohoCreatorAPIWithoutEnvironment(
+    return ZohoCreatorAPI(
         access_token=token,
         account_owner_name=account_owner_name,
         domain=domain,
         environment=environment,
+        send_environment_header=False,
     )
 
 def get_analytics_token(token: Optional[str] = None) -> str:
@@ -148,3 +102,16 @@ def get_analytics_token(token: Optional[str] = None) -> str:
     if not analytics_token:
         raise ZohoAuthError("No Zoho Analytics access token available.")
     return analytics_token
+
+
+def get_analytics_client(
+    token: Optional[str] = None,
+    org_id: str = Config.PAYMENT_ANALYTICS_ORG_ID,
+    domain: str = Config.DOMAIN,
+) -> ZohoAnalyticsAPI:
+    """Instantiate a Zoho Analytics SDK client for payment workflows."""
+    return ZohoAnalyticsAPI(
+        access_token=token or get_analytics_token(),
+        organization_id=org_id,
+        domain=domain,
+    )

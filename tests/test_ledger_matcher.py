@@ -357,22 +357,15 @@ class TestReconcileVendorAccount(unittest.TestCase):
         ]
         self.books_client.vendor_payments.list_all.return_value = zoho_payments
         
-        # Mock vendorcredits API call
-        def mock_request(method, endpoint, params=None):
-            if endpoint == 'vendorcredits':
-                return {
-                    "vendorcredits": [
-                        {
-                            "vendor_credit_id": "vc_01",
-                            "date": "2026-01-04",
-                            "vendor_credit_number": "VC-111",
-                            "total": "100.00"
-                        }
-                    ],
-                    "page_context": {"has_more_page": False}
-                }
-            return {}
-        self.books_client.request = mock_request
+        # Mock the typed SDK Vendor Credits resource.
+        self.books_client.vendor_credits.list_all.return_value = [
+            {
+                "vendor_credit_id": "vc_01",
+                "date": "2026-01-04",
+                "vendor_credit_number": "VC-111",
+                "total": "100.00",
+            }
+        ]
         
         results = reconcile_vendor_account(
             books_client=self.books_client,
@@ -500,7 +493,6 @@ class TestReconcileVendor(unittest.TestCase):
                 vendor_ledger_path=self.ledger_path_unknown,
                 books_client=self.books_client
             )
-
 
 
 

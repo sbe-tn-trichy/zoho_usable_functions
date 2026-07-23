@@ -8,9 +8,10 @@
 ## Project Purpose
 
 High-level Python helper library + scripts built on top of `zoho_sdk`.
-Two main domains:
+Main domains:
 1. **Reconciliation** — Match Zoho Books records against external vendor/bank ledger files
 2. **Credit Memos** — Parse Polycab PDF credit notes and post them to Zoho Books
+3. **Inventory** — Compare FAN stock SKUs with Zoho Inventory and prepare/create missing items
 
 ---
 
@@ -32,8 +33,11 @@ zoho_usable_functions/
 │   │   ├── gstr2b.py                # GSTR-2B reconciliation module
 │   │   ├── matcher.py               # Re-export facade (public API unchanged)
 │   │   └── zeiss_pdf.py             # Carl Zeiss PDF statements parser and consolidator
-│   └── credit_memos/
-│       └── processor.py             # Parse Polycab PDFs, batch processing, location auditor
+│   ├── credit_memos/
+│   │   └── processor.py             # Parse Polycab PDFs, batch processing, location auditor
+│   └── inventory/
+│       ├── item_sync.py             # Generic Zoho Inventory item fetch/diff/payload/create helpers
+│       └── fan_item_sync.py         # FAN stock Excel ↔ Zoho Inventory item sync adapter
 ├── scripts/                         # Standalone runner scripts (not importable library)
 │   ├── reconciliation/
 │   │   ├── convert_zeiss_pdf.py     # Convert Zeiss PDF statements → CSV and consolidate
@@ -44,6 +48,10 @@ zoho_usable_functions/
 │   ├── reconcile_gstr2b.py          # GSTR-2B reconciliation (standalone)
 │   ├── export_fan_purchase_items.py # Export and categorize fan purchase items to CSV
 │   ├── propose_groups.py            # Propose group assignments for active items without group
+│   ├── inventory/                   # Zoho Inventory helper scripts
+│   ├── books/                       # Zoho Books helper scripts
+│   ├── payment_reconciliation/      # Payment reconciliation helper scripts
+│   ├── update_sku_units.py          # Update SKU units in Zoho
 │   └── credit_memos/                # Credit memo processing scripts
 ├── input_files/                           # Input data files (ledgers, PDFs) — gitignored
 │   ├── polycab/ledger/              # Polycab Excel ledger files (.xls)
@@ -195,13 +203,89 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 
 ---
 
+### inventory.item_sync / inventory.fan_item_sync
+
+| Function | Signature | Returns | Notes |
+|---|---|---|---|
+| `fetch_items_for_purchase_account` | `(client, purchase_account_id, status="all")` | `List[Dict]` | Fetches Zoho Inventory items through `client.items.list_all(params={"purchase_account_id": ...})`. |
+| `items_to_frame` | `(items, match_key="sku")` | `pandas.DataFrame` | Normalises SDK item records into a tabular frame with `MATCH_KEY` / `SKU_KEY`. |
+| `find_item_diff` | `(target_rows, existing_items, match_key="sku", compare_fields=None)` | `Dict` | Classifies target rows into missing, changed, unchanged, duplicate/blocking. Changed items are report-only in v1. |
+| `build_inventory_item_payload` | `(row, defaults=None, tax_preferences=None)` | `(payload, issues)` | Generic Zoho Inventory item create-payload builder. |
+| `prepare_item_create_payloads` | `(rows, output_dir, payload_builder=..., filename_prefix=...)` | `Dict` | Writes create payload preview JSON/CSV and validation XLSX. |
+| `create_missing_inventory_items` | `(client, payloads, output_dir, results_filename=...)` | `(results, results_path)` | Creates missing items via `client.items.create(payload)` and writes a result CSV. |
+| `load_fan_candidates` | `(path=Config.FAN_STOCK_FILE, accounts=None)` | `pandas.DataFrame` | Reads the FAN stock workbook `MAIN` sheet, filters live trade SKUs, and maps rows to Zoho item-master columns. |
+| `compare_fan_items_with_inventory` | `(fan_file=Config.FAN_STOCK_FILE, output_dir=Config.FAN_OUTPUT_DIR, existing_items_file=None, client=None, accounts=None, max_pages=None, verbose=True)` | `Dict` | Compares FAN SKUs against Zoho Inventory or a cached snapshot, writes missing, changed-review, and existing-item outputs. Auto-initializes Inventory client. |
+| `prepare_inventory_item_payloads` | `(create_xlsx=default missing-items XLSX, output_dir=Config.FAN_OUTPUT_DIR)` | `Dict` | Reads edited `Missing_Items`, writes create payload preview JSON/CSV and validation XLSX. |
+| `create_inventory_items_from_sheet` | `(create_xlsx=default missing-items XLSX, output_dir=Config.FAN_OUTPUT_DIR, client=None, abort_on_blocking=True)` | `Dict` | Prepares payloads, aborts on blocking validation issues, and creates items through Zoho Inventory. |
+| `build_create_payload` | `(row)` | `(payload, issues)` | FAN compatibility wrapper around `build_inventory_item_payload`. |
+| `normalize_sku` | `(value)` | `str` | Uppercases and strips non-alphanumeric characters for matching. |
+
+**Compare return dict shape**:
+```python
+{
+    "candidates": DataFrame,
+    "existing": DataFrame,
+    "missing": DataFrame,
+    "changed": DataFrame,
+    "diff": Dict,
+    "paths": {
+        "missing_csv": Path,
+        "missing_xlsx": Path,
+        "existing_snapshot": Path,
+        "changed_csv": Path,
+        "changed_xlsx": Path,
+    },
+    "summary": {
+        "fan_candidate_skus": int,
+        "zoho_inventory_item_skus": int,
+        "missing_fan_skus": int,
+        "changed_fan_skus": int,
+    },
+}
+```
+
+---
+
 ## core/auth.py — Client Factories
 
 | Function | Returns |
 |---|---|
-| `fetch_access_tokens(token_url=Config.TOKEN_URL)` | `{"access_token": ..., "workdrive_access_token": ...}` |
+| `fetch_access_tokens(token_url=Config.TOKEN_URL)` | `{"books": ..., "workdrive": ..., "inventory": ...}` |
 | `get_books_client(token=None, org_id=Config.ORG_ID, domain=Config.DOMAIN)` | `ZohoBooksAPI` instance |
 | `get_workdrive_client(token=None, domain=Config.DOMAIN)` | `ZohoWorkdriveAPI` instance |
+| `get_inventory_client(token=None, org_id=Config.ORG_ID, domain=Config.DOMAIN, allow_books_token=False)` | `ZohoInventoryAPI` instance |
+
+---
+
+## core/customers.py — Customer Utilities
+
+| Function | Signature | Returns | Description |
+|---|---|---|---|
+| `fetch_active_customers` | `(books_client)` | `List[Dict[str, Any]]` | Fetches all active customer contacts from Zoho Books, capturing standard fields and custom fields. |
+| `find_same_day_payment_anomalies` | `(books_client, start_date=None, end_date=None, customer_id=None)` | `Dict[str, Any]` | Scans customer payments to find anomalies where a single customer has > 1 payment on the same day. |
+
+**Return shape** for each item in the customer list:
+```python
+{
+    "contact_id": str,
+    "contact_number": str,
+    "contact_name": str,
+    "company_name": str,
+    "status": str,
+    "phone": str,
+    "mobile": str,
+    "email": str,
+    "gst_no": str,
+    "pan_no": str,
+    "place_of_contact": str,
+    "place_of_contact_formatted": str,
+    "outstanding_receivable_amount": float,
+    "unused_credits_receivable_amount": float,
+    "cf_district": str,
+    "cf_b_name": str,
+    "cf_jurisdiction": str
+}
+```
 
 ---
 
@@ -229,6 +313,13 @@ All values loaded from `.env` at repo root. Defaults shown below.
 | `BANK_ACCOUNT_IDFC` | `BANK_ACCOUNT_IDFC` | IDFC bank account ID in Zoho Books |
 | `BANK_ACCOUNT_HDFC` | `BANK_ACCOUNT_HDFC` | HDFC bank account ID in Zoho Books |
 | `GSTIN_TO_VENDOR_ID` | `GSTIN_TO_VENDOR_ID` | JSON dict: GSTIN string → vendor ID |
+| `FAN_STOCK_FILE` | `FAN_STOCK_FILE` | FAN stock workbook path |
+| `FAN_OUTPUT_DIR` | `FAN_OUTPUT_DIR` | Output directory for FAN/Inventory sync files |
+| `FAN_SALES_ACCOUNT_ID` | `FAN_SALES_ACCOUNT_ID` | Sales account ID for created inventory items |
+| `FAN_PURCHASE_ACCOUNT_ID` | `FAN_PURCHASE_ACCOUNT_ID` | Purchase account ID for created inventory items |
+| `FAN_INVENTORY_ACCOUNT_ID` | `FAN_INVENTORY_ACCOUNT_ID` | Inventory account ID for created inventory items |
+| `ZOHO_GST18_TAX_ID` | `ZOHO_GST18_TAX_ID` | Intra-state GST 18% tax ID |
+| `ZOHO_IGST18_TAX_ID` | `ZOHO_IGST18_TAX_ID` | Inter-state IGST 18% tax ID |
 
 
 ---
@@ -268,6 +359,15 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `scripts/export_fan_purchase_items.py` | Export and categorize all items in "Polycab Fan Purchase" account to CSV | Query Zoho Books API for items under the account, apply heuristics for type/tier/sweep/model/color, and save to `output/fan_purchase_items.csv` and `D:/workplace/fan_purchase_items.csv` |
 | `scripts/propose_groups.py` | Propose group assignments for active items without group | Query Zoho Books API for current item groups, match active items without groups, and save to `output/proposed_group_assignments.csv` and `D:/workplace/proposed_group_assignments.csv` |
 | `scripts/reconciliation/find_negative_stock.py` | Find items with negative stock in SBE | Audits and saves items with negative stock to `output/negative_stock_sbe.csv` and `D:/workplace/negative_stock_sbe.csv` (accepts `--location` override) |
+| `scripts/inventory/fan_item_sync.py` | FAN stock workbook ↔ Zoho Inventory item sync | Writes missing-item CSV/XLSX by default; supports `--prepare-create-items` and `--execute-create-items` |
+| `scripts/inventory/update_adjustment_accounts.py` | Audit and update inventory adjustment accounts | Excludes zero-effect adjustments, audits non-zero adjustments, maps warehouses to correct target account IDs, and executes updates. Supports `--from-csv` to process target lists directly from the output CSV. |
+| `scripts/inventory/group_fan_items.py` | Export and cluster Zoho fan items into variant groups | Fetches existing standalone fan items, exports them to CSV, and generates proposed Item Groups/attribute mappings CSV. |
+| `scripts/inventory/execute_grouping.py` | Group manually edited fan items in Zoho | Reads a category CSV file, updates item names, and POSTs groupings to Zoho items/grouping API workaround. |
+| `scripts/find_items_with_unit_nos.py` | Scan Zoho Books items for non-standard unit cases | Fetches items incrementally with pagination and caches them to `output/zoho_items.json` |
+| `scripts/update_sku_units.py` | Update items unit to "NOS" for a target list of SKUs | Supports `--execute` for applying updates and defaults to dry-run mode |
+| `scripts/books/fetch_active_customers.py` | Export active customers to CSV | Fetches all active customer contacts from Zoho Books and saves key columns to a CSV file. |
+| `scripts/books/update_customer_mobiles.py` | Update incorrect customer mobiles in bulk | Norms mobile numbers in incorrect_phone_customers.csv and PUTs updates. Supports `--execute`. |
+| `scripts/books/find_payment_anomalies.py` | Find same-day customer payment anomalies | Finds and reports accounts/days with multiple payment entries. Supports `--start-date`, `--end-date`, `--customer-id`, `--output`. |
 
 ---
 
@@ -288,6 +388,7 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `xlrd` | Read Polycab `.xls` ledger files |
 | `pdfplumber` | Extract text from Polycab PDF credit notes |
 | `openpyxl` | Excel file support |
+| `pandas` | Tabular Excel/CSV transforms for reconciliation and Inventory workflows |
 | `python-dotenv` | Load `.env` config |
 | `requests` | HTTP calls |
 
@@ -484,6 +585,14 @@ uv run python scripts/<subdir>/<script_name>.py [--arg value ...]
 | Export & categorize fan purchase items to CSV | `uv run python scripts/export_fan_purchase_items.py` |
 | Propose group assignments for items without group | `uv run python scripts/propose_groups.py` |
 | Find items with negative stock in location SBE | `uv run python scripts/reconciliation/find_negative_stock.py` |
+| Scan Zoho Books items for 'Nos' unit | `uv run python scripts/find_items_with_unit_nos.py` |
+| Update target items unit to 'NOS' | `uv run python scripts/update_sku_units.py --execute` |
+| Audit/update adjustment accounts | `uv run python scripts/inventory/update_adjustment_accounts.py [--execute] [--from-csv]` |
+| Export and group fan items | `uv run python scripts/inventory/group_fan_items.py` |
+| Execute item groupings in Zoho | `uv run python scripts/inventory/execute_grouping.py [--execute] [--csv FILE]` |
+| Fetch active customers to CSV | `uv run python scripts/books/fetch_active_customers.py` |
+| Update customer mobiles in bulk | `uv run python scripts/books/update_customer_mobiles.py [--execute]` |
+| Find same-day customer payment anomalies | `uv run python scripts/books/find_payment_anomalies.py [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD] [--customer-id ID]` |
 
 ### What INDEX.md Covers for Execution
 

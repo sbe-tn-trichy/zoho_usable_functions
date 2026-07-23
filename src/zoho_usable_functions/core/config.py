@@ -52,12 +52,34 @@ class Config:
     # Bank Account IDs
     BANK_ACCOUNT_IDFC = os.getenv("BANK_ACCOUNT_IDFC", "1094368000045308003")
     BANK_ACCOUNT_HDFC = os.getenv("BANK_ACCOUNT_HDFC", "1094368000000081927")
+    BANK_ACCOUNT_ICICI = os.getenv("BANK_ACCOUNT_ICICI", "1094368000056644467")
 
     # GSTIN Map
     try:
         GSTIN_TO_VENDOR_ID = json.loads(os.getenv("GSTIN_TO_VENDOR_ID", "{}"))
     except Exception:
         GSTIN_TO_VENDOR_ID = {}
+
+    # FAN / Zoho Inventory Item Sync
+    FAN_STOCK_FILE = os.getenv(
+        "FAN_STOCK_FILE",
+        str(root_dir.parent / "file_processor" / "FAN BU Stock  GIT 18-06-2026.xlsx"),
+    )
+    FAN_OUTPUT_DIR = os.getenv("FAN_OUTPUT_DIR", str(root_dir / "output" / "inventory"))
+    FAN_SALES_ACCOUNT_ID = os.getenv("FAN_SALES_ACCOUNT_ID", "1094368000035080815")
+    FAN_PURCHASE_ACCOUNT_ID = os.getenv("FAN_PURCHASE_ACCOUNT_ID", "1094368000035990257")
+    FAN_INVENTORY_ACCOUNT_ID = os.getenv("FAN_INVENTORY_ACCOUNT_ID", "1094368000035130337")
+    ZOHO_GST18_TAX_ID = os.getenv("ZOHO_GST18_TAX_ID", "1094368000000014273")
+    ZOHO_IGST18_TAX_ID = os.getenv("ZOHO_IGST18_TAX_ID", "1094368000000014249")
+
+    # Payment reconciliation
+    CREATOR_ACCOUNT_OWNER_NAME = os.getenv("CREATOR_ACCOUNT_OWNER_NAME", "bharathdst")
+    CREATOR_ENVIRONMENT = os.getenv("CREATOR_ENVIRONMENT", "production")
+    PAYMENT_CREATOR_APP_LINK_NAME = os.getenv("PAYMENT_CREATOR_APP_LINK_NAME", "order-management-new")
+    PAYMENT_CREATOR_REPORT_LINK_NAME = os.getenv("PAYMENT_CREATOR_REPORT_LINK_NAME", "Online_Payments")
+    PAYMENT_ANALYTICS_ORG_ID = os.getenv("PAYMENT_ANALYTICS_ORG_ID", "60018545708")
+    PAYMENT_ANALYTICS_WORKSPACE_ID = os.getenv("PAYMENT_ANALYTICS_WORKSPACE_ID", "264324000000002043")
+    PAYMENT_ANALYTICS_VIEW_ID = os.getenv("PAYMENT_ANALYTICS_VIEW_ID", "264324000006111037")
 
 # Warn if default config is loaded
 logger = logging.getLogger("zoho_usable_functions.config")

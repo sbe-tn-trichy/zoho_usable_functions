@@ -17,13 +17,16 @@ def parse_date(date_str: Any) -> Optional[date]:
         return None
     if isinstance(date_str, (date, datetime)):
         return date_str if isinstance(date_str, date) else date_str.date()
-    try:
-        return datetime.strptime(str(date_str).strip(), "%Y-%m-%d").date()
-    except ValueError:
+    value = str(date_str).strip()
+    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d/%m/%Y"):
         try:
-            return datetime.fromisoformat(str(date_str).strip().split("T")[0]).date()
+            return datetime.strptime(value, fmt).date()
         except ValueError:
-            return None
+            pass
+    try:
+        return datetime.fromisoformat(value.split("T")[0]).date()
+    except ValueError:
+        return None
 
 
 def get_abs_amount(tx: Dict[str, Any]) -> float:

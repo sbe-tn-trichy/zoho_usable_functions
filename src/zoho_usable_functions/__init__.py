@@ -16,6 +16,32 @@ from .credit_memos.processor import (
     process_polycab_credit_memos,
     check_vendor_credits_location
 )
+from .inventory.fan_item_sync import (
+    compare_fan_items_with_inventory,
+    prepare_inventory_item_payloads,
+    create_inventory_items_from_sheet,
+    load_fan_candidates,
+    build_create_payload,
+    normalize_sku
+)
+from .inventory.item_sync import (
+    build_inventory_item_payload,
+    create_missing_inventory_items,
+    fetch_items_for_purchase_account,
+    find_item_diff
+)
+from .payment_reconciliation.matcher import (
+    PaymentReconciliationConfig,
+    confirm_payment_matches,
+    fetch_unmatched_bank_statement_lines,
+    find_exact_payment_matches,
+    reference_date_amount_match_rows,
+    reconcile_and_confirm_payments,
+    write_creator_payments_csv,
+    write_reference_date_amount_matches_csv,
+    write_unmatched_bank_statement_csv,
+    write_payment_reconciliation_csv
+)
 from .core.exceptions import (
     ZohoUsableError,
     ZohoAuthError,
@@ -23,6 +49,7 @@ from .core.exceptions import (
     ReconciliationError
 )
 from .core.models import DotDict
+from .core.customers import fetch_active_customers, find_same_day_payment_anomalies
 
 __all__ = [
     "match_ledger_entries",
@@ -42,12 +69,31 @@ __all__ = [
     "upload_to_workdrive",
     "process_polycab_credit_memos",
     "check_vendor_credits_location",
+    "compare_fan_items_with_inventory",
+    "prepare_inventory_item_payloads",
+    "create_inventory_items_from_sheet",
+    "load_fan_candidates",
+    "build_create_payload",
+    "normalize_sku",
+    "build_inventory_item_payload",
+    "create_missing_inventory_items",
+    "fetch_items_for_purchase_account",
+    "find_item_diff",
+    "PaymentReconciliationConfig",
+    "confirm_payment_matches",
+    "fetch_unmatched_bank_statement_lines",
+    "find_exact_payment_matches",
+    "reference_date_amount_match_rows",
+    "reconcile_and_confirm_payments",
+    "write_creator_payments_csv",
+    "write_reference_date_amount_matches_csv",
+    "write_unmatched_bank_statement_csv",
+    "write_payment_reconciliation_csv",
     "ZohoUsableError",
     "ZohoAuthError",
     "LedgerParsingError",
     "ReconciliationError",
-    "DotDict"
+    "DotDict",
+    "fetch_active_customers",
+    "find_same_day_payment_anomalies"
 ]
-
-
-

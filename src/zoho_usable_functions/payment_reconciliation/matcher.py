@@ -12,6 +12,13 @@ from zoho import ZohoAnalyticsAPI
 from zoho_usable_functions.core.config import Config
 from zoho_usable_functions.reconciliation._utils import get_abs_amount, parse_date
 
+from .constants import (
+    ANALYTICS_SEARCH_STOP_TOKENS,
+    CREATOR_EXPORT_FIELDS,
+    CSV_FIELDS,
+    REFERENCE_DATE_AMOUNT_MATCH_FIELDS,
+    UNMATCHED_BANK_EXPORT_FIELDS,
+)
 from .models import AnalyticsCustomer, BankStatementLine, CreatorPayment, PaymentMatch
 
 logger = logging.getLogger(__name__)
@@ -106,88 +113,6 @@ class PaymentReconciliationResult:
     ambiguous_matches: List[Dict[str, Any]]
     unmatched_creator_payments: List[CreatorPayment]
     unmatched_bank_statement_lines: List[BankStatementLine]
-
-
-CSV_FIELDS = [
-    "status",
-    "confidence",
-    "reason",
-    "creator_payment_id",
-    "creator_date",
-    "creator_amount",
-    "creator_customer_id",
-    "creator_customer_name",
-    "creator_reference",
-    "bank_transaction_id",
-    "bank_account_id",
-    "bank_name",
-    "bank_date",
-    "bank_amount",
-    "bank_reference",
-    "bank_description",
-    "analytics_customer_id",
-    "analytics_customer_name",
-    "analytics_bank_transaction_id",
-    "analytics_reference",
-    "analytics_search_key",
-]
-
-
-UNMATCHED_BANK_EXPORT_FIELDS = [
-    "bank_name",
-    "bank_account_id",
-    "bank_transaction_id",
-    "bank_date",
-    "bank_amount",
-    "bank_reference",
-    "bank_description",
-    "books_status",
-    "books_match_status",
-    "books_reconciliation_status",
-    "analytics_match_count",
-    "analytics_customer_ids",
-    "analytics_customer_names",
-    "analytics_bank_transaction_ids",
-    "analytics_references",
-    "analytics_search_keys",
-    "raw",
-]
-
-
-CREATOR_EXPORT_FIELDS = [
-    "creator_payment_id",
-    "creator_date",
-    "creator_amount",
-    "creator_customer_id",
-    "creator_customer_name",
-    "creator_reference",
-    "raw",
-]
-
-
-REFERENCE_DATE_AMOUNT_MATCH_FIELDS = [
-    "match_status",
-    "match_reason",
-    "matched_reference",
-    "matched_reference_source",
-    "creator_payment_id",
-    "creator_date",
-    "creator_amount",
-    "creator_customer_id",
-    "creator_customer_name",
-    "creator_reference",
-    "bank_name",
-    "bank_account_id",
-    "bank_transaction_id",
-    "bank_date",
-    "bank_amount",
-    "bank_reference",
-    "bank_description",
-    "analytics_customer_ids",
-    "analytics_customer_names",
-    "analytics_references",
-    "analytics_search_keys",
-]
 
 
 def _date_to_csv(value: Optional[date]) -> str:
@@ -489,32 +414,6 @@ def _analytics_candidates(bank_line: BankStatementLine, analytics_rows: Sequence
         if _contains_or_equals(_norm_text(row.search_key), desc):
             candidates.append(row)
     return candidates
-
-
-ANALYTICS_SEARCH_STOP_TOKENS = {
-    "sri",
-    "bharath",
-    "barath",
-    "electrical",
-    "electricals",
-    "sribharath",
-    "sribharathelectricals",
-    "bharathelectricals",
-    "barathdistributors",
-    "payment",
-    "transfer",
-    "pending",
-    "amount",
-    "purchase",
-    "neft",
-    "rtgs",
-    "imps",
-    "upi",
-    "cash",
-    "deposit",
-    "thillai",
-    "nagar",
-}
 
 
 def _looks_like_ifsc(token: str) -> bool:

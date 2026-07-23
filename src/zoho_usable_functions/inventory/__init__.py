@@ -1,3 +1,4 @@
+from .constants import FAN_STOCK_REPORT_FIELDS
 from .fan_item_sync import (
     DEFAULT_FAN_ACCOUNTS,
     GST_18_TAX_PREFERENCES,
@@ -9,6 +10,7 @@ from .fan_item_sync import (
     prepare_inventory_item_payloads,
     write_fan_item_outputs,
 )
+from .fan_stock_report import read_fan_stock_report
 from .item_sync import (
     build_inventory_item_payload,
     compare_items_with_inventory,
@@ -27,6 +29,7 @@ from .item_sync import (
 
 __all__ = [
     "DEFAULT_FAN_ACCOUNTS",
+    "FAN_STOCK_REPORT_FIELDS",
     "GST_18_TAX_PREFERENCES",
     "build_create_payload",
     "compare_fan_items_with_inventory",
@@ -36,6 +39,7 @@ __all__ = [
     "load_fan_candidates",
     "normalize_sku",
     "prepare_inventory_item_payloads",
+    "read_fan_stock_report",
     "write_fan_item_outputs",
     "build_inventory_item_payload",
     "compare_items_with_inventory",

@@ -9,7 +9,17 @@ import pandas as pd
 from zoho.inventory import ZohoInventoryAPI
 
 from ..core.auth import get_inventory_client
-from ..core.config import Config
+from .constants import (
+    DEFAULT_CREATE_XLSX,
+    DEFAULT_EXISTING_SNAPSHOT,
+    DEFAULT_FAN_ACCOUNTS,
+    DEFAULT_FAN_FILE,
+    DEFAULT_OUTPUT_DIR,
+    FAN_FILENAME_PREFIX,
+    FAN_STOCK_REPORT_FIELDS,
+    GST_18_TAX_PREFERENCES,
+)
+from .fan_stock_report import read_fan_stock_report
 from .item_sync import (
     build_inventory_item_payload,
     compare_items_with_inventory,
@@ -22,78 +32,42 @@ from .item_sync import (
 )
 
 
-DEFAULT_FAN_FILE = Path(Config.FAN_STOCK_FILE)
-DEFAULT_OUTPUT_DIR = Path(Config.FAN_OUTPUT_DIR)
-FAN_FILENAME_PREFIX = "zoho_inventory_fan_items"
-DEFAULT_EXISTING_SNAPSHOT = DEFAULT_OUTPUT_DIR / "zoho_inventory_existing_items_snapshot.csv"
-DEFAULT_CREATE_XLSX = DEFAULT_OUTPUT_DIR / f"{FAN_FILENAME_PREFIX}_missing.xlsx"
-DEFAULT_FAN_ACCOUNTS = {
-    "account_id": Config.FAN_SALES_ACCOUNT_ID,
-    "purchase_account_id": Config.FAN_PURCHASE_ACCOUNT_ID,
-    "inventory_account_id": Config.FAN_INVENTORY_ACCOUNT_ID,
-}
-GST_18_TAX_PREFERENCES = [
-    {
-        "tax_specification": "intra",
-        "tax_name": "GST18",
-        "tax_percentage": 18,
-        "tax_id": Config.ZOHO_GST18_TAX_ID,
-    },
-    {
-        "tax_specification": "inter",
-        "tax_name": "IGST18",
-        "tax_percentage": 18,
-        "tax_id": Config.ZOHO_IGST18_TAX_ID,
-    },
-]
-
-
 def load_fan_candidates(path: str | Path = DEFAULT_FAN_FILE, accounts: Optional[dict[str, str]] = None) -> pd.DataFrame:
     """Load valid FAN stock rows and map them to the item-master columns."""
     path = Path(path)
     accounts = accounts or DEFAULT_FAN_ACCOUNTS
-    main = pd.read_excel(path, sheet_name="MAIN", header=3)
-    main = main[main["SKU"].notna()].copy()
-
-    for col in ["CATEGORY", "MODEL", "SKU", "Description", "Model", "Channel", "Status"]:
-        if col in main.columns:
-            main[col] = main[col].astype(str).str.strip()
-    main = main[main["Status"].str.upper() == "LIVE"].copy()
-    main = main[main["CATEGORY"].str.upper() != "CEILING-DUM"].copy()
-    main = main[main["Channel"].str.upper().isin({"TRADE", "ECOM+TRADE", "B2B+TRADE"})].copy()
-
-    for col in main.columns[7:]:
-        main[col] = pd.to_numeric(main[col], errors="coerce").fillna(0)
-
-    stock_col = main.columns[79]
-    git_col = main.columns[80]
+    main = read_fan_stock_report(path, FAN_STOCK_REPORT_FIELDS)
+    main = main[main["sku"].notna()].copy()
+    main = main[main["status"].str.upper() == "LIVE"].copy()
+    main = main[main["category"].str.upper() != "CEILING-DUM"].copy()
+    main = main[main["channel"].str.upper().isin({"TRADE", "ECOM+TRADE", "B2B+TRADE"})].copy()
 
     out = pd.DataFrame(
         {
-            "SKU": main["SKU"],
-            "Item Name": main["Description"],
-            "Status": main["Status"].replace({"LIVE": "Live"}),
+            "SKU": main["sku"],
+            "Item Name": main["description"],
+            "Status": main["status"].replace({"LIVE": "Live"}),
             "Type": "Inventory",
             "Usage unit": "NOS",
             "account_id": accounts["account_id"],
             "purchase_account_id": accounts["purchase_account_id"],
             "inventory_account_id": accounts["inventory_account_id"],
-            "Product Category": main["CATEGORY"],
-            "Product Type": main["Model"],
+            "Product Category": main["category"],
+            "Product Type": main["product_type"],
             "Brand": "Polycab",
             "Manufacturer": "Polycab",
-            "Sales Description": main["Description"],
-            "Purchase Description": main["Description"],
+            "Sales Description": main["description"],
+            "Purchase Description": main["description"],
             "Source": f"FAN BU Stock GIT {path.stem[-10:]}",
             "Opening Stock": 0,
             "Opening Stock Value": 0,
-            "FAN Category": main["CATEGORY"],
-            "FAN Model Group": main["MODEL"],
-            "FAN Channel": main["Channel"],
-            "FAN Status Raw": main["Status"],
-            "FAN Grand Stock": main[stock_col].astype(int),
-            "FAN Grand GIT": main[git_col].astype(int),
-            "FAN Total Stock + GIT": main["Total stock +GIT"].astype(int),
+            "FAN Category": main["category"],
+            "FAN Model Group": main["model_group"],
+            "FAN Channel": main["channel"],
+            "FAN Status Raw": main["status"],
+            "FAN Grand Stock": main["grand_stock"],
+            "FAN Grand GIT": main["grand_git"],
+            "FAN Total Stock + GIT": main["total_stock_and_git"],
         }
     )
     out["SKU_KEY"] = out["SKU"].map(normalize_sku)

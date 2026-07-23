@@ -8,6 +8,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from ..core.excel import read_excel_table
+
 
 DEFAULT_COMPARE_FIELDS = [
     ("Item Name", "name", "name"),
@@ -649,7 +651,7 @@ def prepare_inventory_items_from_sheet(
     filename_suffix: str = "",
 ) -> dict[str, Any]:
     """Read an item sheet and produce payload previews and validation reports."""
-    rows = pd.read_excel(Path(create_xlsx), sheet_name=sheet_name)
+    rows = read_excel_table(create_xlsx, sheet_name=sheet_name)
     return prepare_item_create_payloads(
         rows,
         output_dir=output_dir,

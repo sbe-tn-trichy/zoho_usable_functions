@@ -24,6 +24,8 @@ from .inventory.fan_item_sync import (
     build_create_payload,
     normalize_sku
 )
+from .inventory.fan_stock_report import read_fan_stock_report
+from .inventory.constants import FAN_STOCK_REPORT_FIELDS
 from .inventory.item_sync import (
     build_inventory_item_payload,
     compare_items_with_inventory,
@@ -84,6 +86,8 @@ __all__ = [
     "load_fan_candidates",
     "build_create_payload",
     "normalize_sku",
+    "FAN_STOCK_REPORT_FIELDS",
+    "read_fan_stock_report",
     "build_inventory_item_payload",
     "compare_items_with_inventory",
     "create_generic_inventory_items_from_sheet",

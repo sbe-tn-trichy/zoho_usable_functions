@@ -598,6 +598,8 @@ uv run python scripts/<subdir>/<script_name>.py [--arg value ...]
 | Reconcile bank accounts vs Polycab ledger | `uv run python scripts/reconciliation/reconcile_bank.py` |
 | Scan all bank accounts (discovery) | `uv run python scripts/reconciliation/run_reconciliation.py` |
 | Export & categorize fan purchase items to CSV | `uv run python scripts/export_fan_purchase_items.py` |
+| Export Neoseal items and compare name vs SKU | `uv run python scripts/inventory/export_neoseal_items.py` |
+| Compare Gemini invoice JSON with a Zoho bill | `uv run python scripts/books/compare_gemini_bill.py JSON_FILE` |
 | Propose group assignments for items without group | `uv run python scripts/propose_groups.py` |
 | Find items with negative stock in location SBE | `uv run python scripts/reconciliation/find_negative_stock.py` |
 | Scan Zoho Books items for 'Nos' unit | `uv run python scripts/find_items_with_unit_nos.py` |

@@ -26,6 +26,7 @@ from .item_sync import (
     prepare_item_create_payloads,
     write_item_diff_outputs,
 )
+from .name_sku_audit import compare_name_to_sku, normalize_name_or_sku, resolve_purchase_account
 
 __all__ = [
     "DEFAULT_FAN_ACCOUNTS",
@@ -52,4 +53,7 @@ __all__ = [
     "prepare_inventory_items_from_sheet",
     "prepare_item_create_payloads",
     "write_item_diff_outputs",
+    "compare_name_to_sku",
+    "normalize_name_or_sku",
+    "resolve_purchase_account",
 ]

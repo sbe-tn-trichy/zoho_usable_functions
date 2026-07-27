@@ -128,8 +128,9 @@ class TestGstr2b(unittest.TestCase):
 
     @patch("zoho_usable_functions.reconciliation.gstr2b.load_gstr2b_csv")
     @patch("zoho_usable_functions.reconciliation.gstr2b.parse_gstr2_report")
-    @patch("os.path.exists")
-    def test_reconcile_gstr2b_with_books_auto_dates(self, mock_exists, mock_parse_report, mock_load_csv):
+    @patch("zoho_usable_functions.reconciliation.gstr2b.os.makedirs")
+    @patch("zoho_usable_functions.reconciliation.gstr2b.os.path.exists")
+    def test_reconcile_gstr2b_with_books_auto_dates(self, mock_exists, mock_makedirs, mock_parse_report, mock_load_csv):
         mock_exists.return_value = True
         
         mock_load_csv.return_value = [

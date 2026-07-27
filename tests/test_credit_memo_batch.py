@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 from zoho_usable_functions.credit_memos.processor import (
@@ -59,7 +60,7 @@ class TestCreditMemoBatch(unittest.TestCase):
         # Verify calls
         mock_create.assert_called_once()
         mock_upload.assert_called_once()
-        mock_attach.assert_called_with(books_client, "vc_222", "/dummy/cn/CN-2603211539.pdf")
+        mock_attach.assert_called_with(books_client, "vc_222", os.path.join("/dummy/cn", "CN-2603211539.pdf"))
         
     def test_check_vendor_credits_location(self):
         books_client = MagicMock()

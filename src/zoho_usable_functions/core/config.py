@@ -61,6 +61,12 @@ class Config:
     except Exception:
         GSTIN_TO_VENDOR_ID = {}
 
+    # Purchase account name -> Zoho Books account ID.
+    try:
+        PURCHASE_ACCOUNT_IDS = json.loads(os.getenv("PURCHASE_ACCOUNT_IDS", "{}"))
+    except Exception:
+        PURCHASE_ACCOUNT_IDS = {}
+
     # FAN / Zoho Inventory Item Sync
     FAN_STOCK_FILE = os.getenv(
         "FAN_STOCK_FILE",

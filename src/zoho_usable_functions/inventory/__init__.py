@@ -41,6 +41,11 @@ from .neoseal_groups import (
     assign_neoseal_group_names,
     neoseal_group_name,
 )
+from .alias_sync import (
+    group_alias_mappings,
+    load_alias_mappings,
+    sync_item_aliases,
+)
 
 __all__ = [
     "DEFAULT_FAN_ACCOUNTS",
@@ -80,4 +85,7 @@ __all__ = [
     "NEOSEAL_GROUP_RULES",
     "assign_neoseal_group_names",
     "neoseal_group_name",
+    "group_alias_mappings",
+    "load_alias_mappings",
+    "sync_item_aliases",
 ]

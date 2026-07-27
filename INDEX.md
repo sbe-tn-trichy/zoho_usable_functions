@@ -40,9 +40,9 @@ zoho_usable_functions/
 │   │   └── zeiss_pdf.py             # Carl Zeiss PDF statements parser and consolidator
 │   ├── credit_memos/
 │   │   └── processor.py             # Parse Polycab PDFs, batch processing, location auditor
-│   └── inventory/
 │       ├── item_sync.py             # Generic Zoho Inventory item fetch/diff/payload/create helpers
-│       └── fan_item_sync.py         # FAN stock Excel ↔ Zoho Inventory item sync adapter
+│       ├── fan_item_sync.py         # FAN stock Excel ↔ Zoho Inventory item sync adapter
+│       └── alias_sync.py            # Sync Gemini invoice JSON names as item alias names in Zoho Books
 ├── scripts/                         # Standalone runner scripts (not importable library)
 │   ├── reconciliation/
 │   │   ├── convert_zeiss_pdf.py     # Convert Zeiss PDF statements → CSV and consolidate
@@ -375,6 +375,7 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `scripts/inventory/group_fan_items.py` | Export and cluster Zoho fan items into variant groups | Fetches existing standalone fan items, exports them to CSV, and generates proposed Item Groups/attribute mappings CSV. |
 | `scripts/inventory/generate_price_list.py` | Generate an auditable price list with minimum-margin protection | Resolves one required `--purchase-account` through `PURCHASE_ACCOUNT_IDS`, includes only `track_inventory=true` items, and fetches from Zoho Books when no source file is given (or filters a supplied CSV/Excel file). |
 | `scripts/inventory/propose_neoseal_groups.py` | Generate Neoseal item-group proposals for review | Fetches inventory-tracked Neoseal items and writes current/proposed group names plus `PENDING` review controls to CSV. Never writes to Zoho. |
+| `scripts/inventory/update_item_alias.py` | Sync Gemini invoice JSON names as alias_name on Zoho Books items | Reads mapping JSON (e.g. `neoseal.json`), groups unique vendor descriptions per SKU, and updates `alias_name` in Zoho Books. Defaults to dry-run mode; supports `--execute` and `--overwrite`. |
 | `scripts/inventory/execute_grouping.py` | Group manually edited fan items in Zoho | Reads a category CSV file, updates item names, and POSTs groupings to Zoho items/grouping API workaround. |
 | `scripts/find_items_with_unit_nos.py` | Scan Zoho Books items for non-standard unit cases | Fetches items incrementally with pagination and caches them to `output/zoho_items.json` |
 | `scripts/update_sku_units.py` | Update items unit to "NOS" for a target list of SKUs | Supports `--execute` for applying updates and defaults to dry-run mode |

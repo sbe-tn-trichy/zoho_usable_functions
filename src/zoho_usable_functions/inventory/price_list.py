@@ -82,6 +82,7 @@ _ALIASES = {
 BOOKS_PRICE_LIST_FIELDS = (
     "group_name",
     "item_id",
+    "sku",
     "name",
     "item_name",
     "category_name",
@@ -90,6 +91,16 @@ BOOKS_PRICE_LIST_FIELDS = (
     "rate",
     "purchase_rate",
     "mrp",
+)
+
+PRICE_LIST_CSV_COLUMNS = (
+    "Group Name",
+    "Item Name",
+    "SKU",
+    "Cost Price",
+    "Sales Price",
+    "Margin",
+    "ItemId",
 )
 
 
@@ -274,10 +285,10 @@ def generate_price_list(
         output.update(
             {
                 "Effective Current Price": float(effective_current),
-                "Current Margin %": float(current_margin),
+                "Current Margin %": float(round(current_margin, 2)),
                 "Minimum Safe Price": float(minimum_price),
                 "Proposed Price": float(proposed_price),
-                "Proposed Margin %": float(proposed_margin),
+                "Proposed Margin %": float(round(proposed_margin, 2)),
                 "Price Adjustment": float(adjustment),
                 "Price Status": status,
             }
@@ -357,4 +368,68 @@ def write_price_list(result: PriceListResult, output_path: str | Path) -> Path:
         result.blocked.to_excel(writer, sheet_name="Blocked Rows", index=False)
         summary_frame.to_excel(writer, sheet_name="Summary", index=False)
         policy_frame.to_excel(writer, sheet_name="Policy", index=False)
+    return destination
+
+
+def _required_export_column(
+    frame: pd.DataFrame,
+    label: str,
+    candidates: Iterable[str],
+) -> str:
+    for candidate in candidates:
+        if candidate in frame.columns:
+            return candidate
+    expected = ", ".join(repr(candidate) for candidate in candidates)
+    raise ValueError(
+        f"Cannot create the price-list CSV because {label} is unavailable; "
+        f"expected one of: {expected}"
+    )
+
+
+def write_price_list_csv(result: PriceListResult, output_path: str | Path) -> Path:
+    """Write valid proposed prices to a CSV with the import-friendly column schema."""
+
+    destination = Path(output_path)
+    if destination.suffix.lower() != ".csv":
+        raise ValueError("Price-list CSV output must use the .csv extension")
+
+    frame = result.price_list
+    source_columns = {
+        "group": _required_export_column(
+            frame, "Group Name", ("group_name", "Group Name")
+        ),
+        "name": _required_export_column(
+            frame,
+            "Item Name",
+            (result.source_columns["name"], "name", "item_name", "Item Name"),
+        ),
+        "sku": _required_export_column(
+            frame, "SKU", (result.source_columns["sku"], "sku", "SKU")
+        ),
+        "cost": _required_export_column(
+            frame,
+            "Cost Price",
+            (result.source_columns["cost"], "purchase_rate", "Cost Price"),
+        ),
+        "item_id": _required_export_column(
+            frame, "ItemId", ("item_id", "ItemId", "Item ID")
+        ),
+    }
+
+    valid = frame.loc[frame["Price Status"] != "blocked"]
+    export = pd.DataFrame(
+        {
+            "Group Name": valid[source_columns["group"]],
+            "Item Name": valid[source_columns["name"]],
+            "SKU": valid[source_columns["sku"]],
+            "Cost Price": valid[source_columns["cost"]],
+            "Sales Price": valid["Proposed Price"],
+            "Margin": valid["Proposed Margin %"],
+            "ItemId": valid[source_columns["item_id"]],
+        },
+        columns=PRICE_LIST_CSV_COLUMNS,
+    )
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    export.to_csv(destination, index=False)
     return destination

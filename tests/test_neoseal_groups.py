@@ -29,3 +29,34 @@ def test_unmatched_item_is_rejected_instead_of_leaving_blank_group():
 
     with pytest.raises(ValueError, match="do not cover"):
         assign_neoseal_group_names(items)
+
+
+def test_assigns_current_neoseal_catalog_variants():
+    items = pd.DataFrame(
+        [
+            {"name": "NEOSEAL 305 CPVC SOLVENT CEMENT - 25ML TUBE"},
+            {"name": "NEOSEAL 566 QUICK LEAK STOP - 1KG"},
+        ]
+    )
+
+    grouped = assign_neoseal_group_names(items)
+
+    assert list(grouped["group_name"]) == ["CPVC Solvent", "Quick Leak Stop"]
+
+
+def test_assigns_miscellaneous_products_to_neoseal_others():
+    items = pd.DataFrame(
+        [
+            {"name": "753 Gasket Shellac 25g"},
+            {"name": "802 Neoflex 20g"},
+            {"name": "Drain Cleaner - 50g"},
+        ]
+    )
+
+    grouped = assign_neoseal_group_names(items)
+
+    assert list(grouped["group_name"]) == [
+        "Neoseal Others",
+        "Neoseal Others",
+        "Neoseal Others",
+    ]

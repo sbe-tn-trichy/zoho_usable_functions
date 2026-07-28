@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an Excel price list and neutralize low-margin prices."""
+"""Generate a CSV price list and neutralize low-margin prices."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from zoho_usable_functions.inventory.price_list import (
     PriceListPolicy,
     generate_price_list,
     read_price_source,
-    write_price_list,
+    write_price_list_csv,
 )
 from zoho_usable_functions.core.auth import get_books_client
 from zoho_usable_functions.core.config import Config
@@ -41,10 +41,10 @@ def resolve_purchase_account(account: str) -> tuple[str, str]:
 
 
 def fetch_purchase_account_items(account_name: str, account_id: str) -> pd.DataFrame:
-    """Fetch only the items assigned to one configured purchase account."""
+    """Fetch active items assigned to one configured purchase account."""
 
     client = get_books_client()
-    items = client.items.list_by_purchase_account(account_id)
+    items = client.items.list_by_purchase_account(account_id, status="active")
     frame = pd.DataFrame(items)
     if frame.empty:
         raise ValueError(f"No items were returned for purchase account {account_name!r}")
@@ -67,8 +67,8 @@ def main() -> None:
         "--output",
         type=Path,
         help=(
-            "Audit workbook to create. Defaults to "
-            "output/inventory/price_lists/<purchase-account>/price_list.xlsx."
+            "CSV price list to create. Defaults to "
+            "output/inventory/price_lists/<purchase-account>/price_list.csv."
         ),
     )
     parser.add_argument(
@@ -116,19 +116,19 @@ def main() -> None:
     )
     account_slug = re.sub(r"[^a-z0-9]+", "_", account_name.casefold()).strip("_")
     default_output = (
-        Path("output/inventory/price_lists") / (account_slug or "purchase_account") / "price_list.xlsx"
+        Path("output/inventory/price_lists") / (account_slug or "purchase_account") / "price_list.csv"
     )
-    destination = write_price_list(result, args.output or default_output)
+    destination = write_price_list_csv(result, args.output or default_output)
 
     print(f"Created {destination} for purchase account: {account_name} ({account_id})")
     print(
-        f"Rows: {result.summary['total_rows']} | "
+        f"Exported: {result.summary['total_rows'] - result.summary['blocked']} | "
         f"margin OK: {result.summary['margin_ok']} | "
         f"adjusted: {result.summary['adjusted_low_margin']} | "
         f"blocked: {result.summary['blocked']}"
     )
     if result.summary["blocked"]:
-        print("Review the 'Blocked Rows' sheet before using the price list.")
+        print("Blocked rows were excluded from the CSV.")
 
 
 if __name__ == "__main__":

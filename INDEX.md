@@ -324,6 +324,7 @@ All values loaded from `.env` at repo root. Defaults shown below.
 | `BANK_ACCOUNT_IDFC` | `BANK_ACCOUNT_IDFC` | IDFC bank account ID in Zoho Books |
 | `BANK_ACCOUNT_HDFC` | `BANK_ACCOUNT_HDFC` | HDFC bank account ID in Zoho Books |
 | `GSTIN_TO_VENDOR_ID` | `GSTIN_TO_VENDOR_ID` | JSON dict: GSTIN string → vendor ID |
+| `PURCHASE_ACCOUNT_IDS` | `PURCHASE_ACCOUNT_IDS` | JSON dict: Purchase account name string → account ID |
 | `FAN_STOCK_FILE` | `FAN_STOCK_FILE` | FAN stock workbook path |
 | `FAN_OUTPUT_DIR` | `FAN_OUTPUT_DIR` | Output directory for FAN/Inventory sync files |
 | `FAN_SALES_ACCOUNT_ID` | `FAN_SALES_ACCOUNT_ID` | Sales account ID for created inventory items |

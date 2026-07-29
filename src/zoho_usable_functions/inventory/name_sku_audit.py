@@ -62,6 +62,10 @@ def resolve_purchase_account(accounts: Iterable[dict[str, Any]], search_text: st
     matches = exact or [account for account in account_list if needle in account_name(account).casefold()]
 
     if not matches:
+        from ..core.config import Config
+        for name, acct_id in Config.PURCHASE_ACCOUNT_IDS.items():
+            if name.casefold() == needle or needle in name.casefold():
+                return {"account_id": str(acct_id), "account_name": name}
         raise ValueError(f"No purchase account name contains {search_text!r}")
     if len(matches) > 1:
         names = ", ".join(sorted(account_name(account) for account in matches))

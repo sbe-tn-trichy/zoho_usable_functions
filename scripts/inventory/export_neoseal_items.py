@@ -21,13 +21,40 @@ from zoho_usable_functions.inventory.name_sku_audit import compare_name_to_sku, 
 DEFAULT_OUTPUT = Path("output/inventory/neoseal_items_name_vs_sku.csv")
 
 
+def extract_group_attributes(item: dict[str, Any]) -> str:
+    attrs = []
+    for k in (1, 2, 3):
+        an = item.get(f"attribute_name{k}")
+        aon = item.get(f"attribute_option_name{k}")
+        if an or aon:
+            val = str(aon or "").strip()
+            key = str(an or "").strip()
+            if key and val:
+                attrs.append(f"{key}={val}")
+            elif val:
+                attrs.append(val)
+            elif key:
+                attrs.append(key)
+    return "; ".join(attrs)
+
+
 def item_to_row(item: dict[str, Any]) -> dict[str, Any]:
     name = item.get("name") or item.get("item_name") or ""
     sku = item.get("sku") or item.get("item_sku") or ""
+    group_name = item.get("group_name") or item.get("item_group_name") or ""
     return {
         "item_id": item.get("item_id") or item.get("id"),
         "name": name,
         "sku": sku,
+        "group_id": item.get("group_id") or item.get("item_group_id") or "",
+        "group_name": group_name,
+        "group_attributes": extract_group_attributes(item),
+        "attribute_name1": item.get("attribute_name1") or "",
+        "attribute_option_name1": item.get("attribute_option_name1") or "",
+        "attribute_name2": item.get("attribute_name2") or "",
+        "attribute_option_name2": item.get("attribute_option_name2") or "",
+        "attribute_name3": item.get("attribute_name3") or "",
+        "attribute_option_name3": item.get("attribute_option_name3") or "",
         **compare_name_to_sku(name, sku),
         "status": item.get("status"),
         "unit": item.get("unit"),
@@ -60,8 +87,8 @@ def main() -> None:
     parser.add_argument(
         "--status",
         choices=("all", "active", "inactive"),
-        default="all",
-        help="Item status to download (default: all).",
+        default="active",
+        help="Item status to download (default: active).",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="CSV path to write.")
     args = parser.parse_args()

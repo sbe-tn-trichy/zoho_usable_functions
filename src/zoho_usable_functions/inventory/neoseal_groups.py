@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import pandas as pd
 
@@ -67,3 +68,55 @@ def assign_neoseal_group_names(items: pd.DataFrame) -> pd.DataFrame:
     if "name" in grouped.columns:
         sort_columns.append("name")
     return grouped.sort_values(sort_columns, kind="stable").reset_index(drop=True)
+
+
+def _common_field(details: list[dict[str, Any]], *fields: str) -> str:
+    for field in fields:
+        values = {str(detail.get(field) or "").strip() for detail in details if detail.get(field)}
+        if len(values) == 1:
+            return values.pop()
+        if len(values) > 1:
+            raise ValueError(f"Variants have inconsistent {field} values: {values}")
+    return ""
+
+
+def build_grouping_payload(
+    group_name: str,
+    variants: Sequence[dict[str, Any]],
+    details: list[dict[str, Any]],
+    attribute_name: str = "Size",
+) -> dict[str, Any]:
+    """Build a validated Zoho grouping payload for item variants."""
+
+    if len(details) != len(variants):
+        raise ValueError(f"Expected {len(variants)} live item details, got {len(details)}")
+
+    payload: dict[str, Any] = {
+        "group_name": group_name,
+        "unit": _common_field(details, "unit") or "NOS",
+        "purchase_account_id": _common_field(details, "purchase_account_id"),
+        "account_id": _common_field(details, "account_id", "sales_account_id"),
+        "inventory_account_id": _common_field(details, "inventory_account_id"),
+        "attribute_name1": attribute_name,
+        "items": [
+            {
+                "item_id": variant["item_id"],
+                "sku": variant["sku"],
+                "attribute_option_name1": variant.get("size") or variant.get("option", ""),
+            }
+            for variant in variants
+        ],
+    }
+    category_id = _common_field(details, "category_id")
+    if category_id:
+        payload["category_id"] = category_id
+
+    missing = [field for field in ("purchase_account_id", "account_id", "inventory_account_id") if not payload[field]]
+    if missing:
+        raise ValueError("Live items are missing grouping fields: " + ", ".join(missing))
+    return payload
+
+
+def post_item_grouping(client: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Group variants through the typed Zoho Inventory SDK resource."""
+    return client.items.group_items(payload)

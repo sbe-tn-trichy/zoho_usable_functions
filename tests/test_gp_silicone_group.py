@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from unittest.mock import MagicMock
 
 
 SCRIPT = (
@@ -41,3 +42,14 @@ def test_build_grouping_payload_uses_correct_names_and_color_variants():
         "701-260-C",
         "701-260-W",
     ]
+
+
+def test_group_items_delegates_to_sdk_resource():
+    client = MagicMock()
+    payload = {"group_name": MODULE.GROUP_NAME, "items": []}
+    client.items.group_items.return_value = {"item_group": {"group_id": "123"}}
+
+    result = MODULE.group_items(client, payload)
+
+    assert result == {"item_group": {"group_id": "123"}}
+    client.items.group_items.assert_called_once_with(payload)

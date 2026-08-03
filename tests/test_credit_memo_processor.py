@@ -53,6 +53,10 @@ class TestCreditMemoProcessor(unittest.TestCase):
         self.assertEqual(vendor_id, "resolved_vendor_999")
         books_client.contacts.list.assert_called_once_with(params={"contact_name": "Polycab"})
 
+    @patch(
+        "zoho_usable_functions.credit_memos.processor._CHART_OF_ACCOUNTS_CACHE",
+        None,
+    )
     def test_resolve_account_id(self):
         books_client = MagicMock()
         books_client.chart_of_accounts.list.return_value = {
@@ -65,11 +69,19 @@ class TestCreditMemoProcessor(unittest.TestCase):
         account_id = resolve_account_id(books_client, "Polycab Scheme - Expense")
         self.assertEqual(account_id, "acc_02")
 
+    @patch("zoho_usable_functions.credit_memos.processor.resolve_account_id")
     @patch("zoho_usable_functions.credit_memos.processor.resolve_bill_id_by_number")
     @patch("zoho_usable_functions.credit_memos.processor.parse_polycab_credit_memo")
     @patch("zoho_usable_functions.credit_memos.processor.resolve_vendor_id")
     @patch("zoho_usable_functions.credit_memos.processor.resolve_item_id")
-    def test_create_vendor_credit_from_pdf(self, mock_resolve_item, mock_resolve_vend, mock_parse, mock_resolve_bill):
+    def test_create_vendor_credit_from_pdf(
+        self,
+        mock_resolve_item,
+        mock_resolve_vend,
+        mock_parse,
+        mock_resolve_bill,
+        mock_resolve_account,
+    ):
         books_client = MagicMock()
         mock_parse.return_value = {
             "vendor_name": "Polycab India Limited",
@@ -81,6 +93,7 @@ class TestCreditMemoProcessor(unittest.TestCase):
         }
         mock_resolve_vend.return_value = "vendor_99"
         mock_resolve_item.return_value = "item_123"
+        mock_resolve_account.return_value = "account_456"
         books_client.vendor_credits.create.return_value = {
             "vendorcredit": {"vendor_credit_id": "vc_100"}
         }
@@ -96,6 +109,7 @@ class TestCreditMemoProcessor(unittest.TestCase):
         self.assertEqual(payload["reference_invoice_type"], "registered")
         self.assertNotIn("bill_id", payload)
         self.assertEqual(payload["line_items"][0]["item_id"], "item_123")
+        self.assertEqual(payload["line_items"][0]["account_id"], "account_456")
         self.assertEqual(payload["line_items"][0]["rate"], 810.31)
         self.assertEqual(payload["line_items"][0]["gst_treatment_code"], "out_of_scope")
         self.assertNotIn("tax_id", payload["line_items"][0])

@@ -178,16 +178,14 @@ def _optional_common(details: list[dict[str, Any]], field: str) -> str:
     return values.pop() if len(values) == 1 else ""
 
 
-def _request_grouping(
-    client: Any,
-    method: str,
-    endpoint: str,
-    payload: dict[str, Any],
+def _update_grouping(
+    client: Any, group_id: str, payload: dict[str, Any]
 ) -> dict[str, Any]:
+    """Update an existing group; the SDK currently exposes creation only."""
     return BaseZohoClient.request(
         client,
-        method=method,
-        endpoint=endpoint,
+        method="PUT",
+        endpoint=f"items/grouping/{group_id}",
         headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
         data={"JSONString": json.dumps(payload)},
         params={"organization_id": client.organization_id},
@@ -408,14 +406,12 @@ def main() -> None:
 
     for group_name, payload in solvent_payloads.items():
         group_id = group_ids[group_name]
-        _request_grouping(
-            client, "PUT", f"items/grouping/{group_id}", payload
-        )
+        _update_grouping(client, group_id, payload)
         print(f"Expanded {group_name}")
         time.sleep(0.5)
 
     for group_name, payload in new_payloads.items():
-        response = _request_grouping(client, "POST", "items/grouping", payload)
+        response = client.items.group_items(payload)
         group = response.get("item_group", response)
         print(
             f"Created {group_name}: "

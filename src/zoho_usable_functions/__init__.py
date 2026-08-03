@@ -37,6 +37,8 @@ from .inventory.item_sync import (
     prepare_inventory_items_from_sheet,
     write_item_diff_outputs,
 )
+from .inventory.item_formatter import extract_group_attributes, item_to_row_dict
+from .inventory.fan_grouping import classify_item_type, propose_fan_group
 from .payment_reconciliation.matcher import (
     PaymentReconciliationConfig,
     confirm_payment_matches,
@@ -61,6 +63,7 @@ from .core.customers import (
     find_customers_with_unused_credits,
     find_same_day_payment_anomalies,
 )
+from .core.cli import ScriptContext, init_script_context
 
 __all__ = [
     "match_ledger_entries",
@@ -114,5 +117,11 @@ __all__ = [
     "DotDict",
     "fetch_active_customers",
     "find_customers_with_unused_credits",
-    "find_same_day_payment_anomalies"
+    "find_same_day_payment_anomalies",
+    "ScriptContext",
+    "init_script_context",
+    "extract_group_attributes",
+    "item_to_row_dict",
+    "classify_item_type",
+    "propose_fan_group"
 ]

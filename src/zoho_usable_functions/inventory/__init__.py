@@ -1,4 +1,16 @@
+from .alias_sync import (
+    group_alias_mappings,
+    load_alias_mappings,
+    sync_item_aliases,
+)
 from .constants import FAN_STOCK_REPORT_FIELDS
+from .fan_grouping import (
+    EXISTING_FAN_GROUPS,
+    INCH_TO_MM,
+    MM_TO_INCH,
+    classify_item_type,
+    propose_fan_group,
+)
 from .fan_item_sync import (
     DEFAULT_FAN_ACCOUNTS,
     GST_18_TAX_PREFERENCES,
@@ -11,6 +23,7 @@ from .fan_item_sync import (
     write_fan_item_outputs,
 )
 from .fan_stock_report import read_fan_stock_report
+from .item_formatter import extract_group_attributes, item_to_row_dict
 from .item_sync import (
     build_inventory_item_payload,
     compare_items_with_inventory,
@@ -27,6 +40,13 @@ from .item_sync import (
     write_item_diff_outputs,
 )
 from .name_sku_audit import compare_name_to_sku, normalize_name_or_sku, resolve_purchase_account
+from .neoseal_groups import (
+    NEOSEAL_GROUP_RULES,
+    assign_neoseal_group_names,
+    build_grouping_payload,
+    neoseal_group_name,
+    post_item_grouping,
+)
 from .price_list import (
     BOOKS_PRICE_LIST_FIELDS,
     PRICE_LIST_CSV_COLUMNS,
@@ -37,16 +57,6 @@ from .price_list import (
     read_price_source,
     write_price_list,
     write_price_list_csv,
-)
-from .neoseal_groups import (
-    NEOSEAL_GROUP_RULES,
-    assign_neoseal_group_names,
-    neoseal_group_name,
-)
-from .alias_sync import (
-    group_alias_mappings,
-    load_alias_mappings,
-    sync_item_aliases,
 )
 
 __all__ = [
@@ -88,8 +98,17 @@ __all__ = [
     "write_price_list_csv",
     "NEOSEAL_GROUP_RULES",
     "assign_neoseal_group_names",
+    "build_grouping_payload",
     "neoseal_group_name",
+    "post_item_grouping",
     "group_alias_mappings",
     "load_alias_mappings",
     "sync_item_aliases",
+    "extract_group_attributes",
+    "item_to_row_dict",
+    "classify_item_type",
+    "propose_fan_group",
+    "MM_TO_INCH",
+    "INCH_TO_MM",
+    "EXISTING_FAN_GROUPS",
 ]

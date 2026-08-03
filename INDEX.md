@@ -1,9 +1,9 @@
 # zoho_usable_functions — Code Index
 
-> **PROJECT SPLIT**: Confirmed reconciliation and credit-memo modules have been
-> promoted to the sibling `zoho_sdk_advanced` project. This repository is the
-> trial/incubation project. Compatibility copies remain temporarily so existing
-> scripts do not break during migration.
+> **SDK BOUNDARY**: Confirmed reconciliation and credit-memo modules are owned
+> by `zoho-sdk` under its top-level `workflows` package. This repository remains
+> the trial/incubation project. Lightweight compatibility aliases preserve old
+> import paths without retaining copied implementations.
 
 > **AI AGENT INSTRUCTION**: Read this file first before opening any source file.
 > It maps the entire codebase. Only open source files when you need implementation details beyond what is here.
@@ -208,10 +208,15 @@ All exports are declared in `src/zoho_usable_functions/__init__.py`.
 
 ---
 
-### inventory.item_sync / inventory.fan_item_sync
+### inventory.item_sync / inventory.fan_item_sync / inventory.item_formatter / inventory.fan_grouping
 
 | Function | Signature | Returns | Notes |
 |---|---|---|---|
+| `extract_group_attributes` | `(item: Dict)` | `str` | Semicolon-separated string of group attribute key-value pairs. |
+| `item_to_row_dict` | `(item: Dict, include_audit=True)` | `Dict` | Flattens item record into normalized row dictionary for reporting/exporting. |
+| `classify_item_type` | `(item: Dict)` | `str` | Classifies product type based on SKU prefixes, names, and Zoho categories. |
+| `propose_fan_group` | `(name: str, sku: str, prod_type: str)` | `Tuple[str, str, str]` | Suggests suggested_group, group_id, and action for a FAN item. |
+| `post_item_grouping` | `(client, payload)` | `Dict` | Compatibility helper delegating item-group creation to SDK `client.items.group_items`. |
 | `fetch_items_for_purchase_account` | `(client, purchase_account_id, status="all")` | `List[Dict]` | Compatibility wrapper over `client.items.list_by_purchase_account`. |
 | `fetch_inventory_items` | `(client, purchase_account_id=None, max_pages=None, verbose=False)` | `List[Dict]` | Generic SDK-backed fetch with optional bounded pagination for previews/test runs. |
 | `items_to_frame` | `(items, match_key="sku")` | `pandas.DataFrame` | Normalises SDK item records into a tabular frame with `MATCH_KEY` / `SKU_KEY`. |
@@ -389,6 +394,9 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 | `scripts/books/update_bill_items.py` | Update bill line item IDs | Updates target bill line items to map old item IDs to newly cloned Zeiss item IDs. Supports `--execute`. |
 | `scripts/inventory/delete_old_items.py` | Cleanup old SKU items | Attempts to delete original items renamed to `_old`. If deletion fails due to transaction history, marks them inactive in bulk. Supports `--execute`. |
 | `scripts/books/find_item_transactions.py` | Find item transactions and update CSV | Overwrites the input CSV to contain only the 17 items that failed deletion, and prints/saves details of all transactions containing them. |
+| `scripts/books/split_invoice_1094368000058722034.py` | Split high-value invoice into multiple invoices <= 87.5k | Splits draft invoice 1094368000058722034 into 15 invoices spanning 18 July–31 July 2026 (excluding Sundays). Supports `--execute`. |
+| `scripts/books/renumber_july_invoices.py` | Renumber July 2026 invoices sequentially | Renumbers 15 July 2026 split invoices from SBE2627INV-00451 to SBE2627INV-00465 without sequence gaps. Supports `--execute`. |
+| `scripts/books/sync_contra_bills.py` | Sync contra purchase bills in location SBE | Creates and updates contra purchase bills in location SBE to 100% match sales invoices SBE2627INV-00451 to 00466 on Bill Number, Date, and Amount. Supports `--execute`. |
 
 ---
 
@@ -405,7 +413,7 @@ All reconciliation and matching functions wrap their results in `DotDict` (e.g. 
 
 | Package | Purpose |
 |---|---|
-| `zoho_sdk` | Zoho Books + WorkDrive API client (install separately: `pip install -e ../zoho_sdk`) |
+| `zoho_sdk[workflows]` | Zoho clients plus promoted reconciliation and credit-memo workflows (local editable install: `pip install -e "../zoho_sdk[workflows]"`) |
 | `xlrd` | Read Polycab `.xls` ledger files |
 | `pdfplumber` | Extract text from Polycab PDF credit notes |
 | `openpyxl` | Excel file support |

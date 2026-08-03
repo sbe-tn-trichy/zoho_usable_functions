@@ -12,23 +12,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from zoho_usable_functions.core.auth import get_inventory_client, fetch_access_tokens
 from zoho_usable_functions.core.config import Config
 
-def group_items_workaround(client, data):
-    """Bypasses subclass request override to call BaseZohoClient.request with headers/data."""
-    payload = {
-        "JSONString": json.dumps(data)
-    }
-    params = {"organization_id": client.organization_id}
-    headers = {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"}
-    
-    from zoho.base_client import BaseZohoClient
-    return super(client.__class__, client).request(
-        method='POST',
-        endpoint='items/grouping',
-        headers=headers,
-        data=payload,
-        params=params
-    )
-
 def main():
     parser = argparse.ArgumentParser(description="Execute grouping of ceiling fan items into variants in Zoho Inventory.")
     parser.add_argument("--execute", action="store_true", help="Perform actual update and write operations in Zoho.")
@@ -134,7 +117,7 @@ def main():
             print(f"  Create Item Group '{group_name}' with {len(items_payload)} variants...")
             if args.execute:
                 try:
-                    res = group_items_workaround(client, grouping_data)
+                    res = client.items.group_items(grouping_data)
                     group_id = res.get("item_group", {}).get("group_id", "N/A")
                     print(f"    ✅ Successfully grouped. Group ID: {group_id}")
                     time.sleep(2.5) # Pacing write delay

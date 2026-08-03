@@ -1,7 +1,12 @@
 import pandas as pd
 import pytest
 
-from zoho_usable_functions.inventory.neoseal_groups import assign_neoseal_group_names
+from unittest.mock import MagicMock
+
+from zoho_usable_functions.inventory.neoseal_groups import (
+    assign_neoseal_group_names,
+    post_item_grouping,
+)
 
 
 def test_assigns_product_family_groups_and_sorts_ascending():
@@ -60,3 +65,14 @@ def test_assigns_miscellaneous_products_to_neoseal_others():
         "Neoseal Others",
         "Neoseal Others",
     ]
+
+
+def test_item_group_creation_delegates_to_sdk_resource():
+    client = MagicMock()
+    payload = {"group_name": "Bitucoat", "items": []}
+    client.items.group_items.return_value = {"item_group": {"group_id": "123"}}
+
+    result = post_item_grouping(client, payload)
+
+    assert result == {"item_group": {"group_id": "123"}}
+    client.items.group_items.assert_called_once_with(payload)

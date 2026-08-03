@@ -4,8 +4,8 @@ High-level helper functions and automated workflows built on top of the Zoho SDK
 
 ## Project maturity boundary
 
-Confirmed reconciliation and credit-memo modules have been promoted into the
-sibling project `../zoho_sdk_advanced`.
+Confirmed reconciliation and credit-memo modules are owned by the unified
+`zoho-sdk` distribution under its top-level `workflows` package.
 
 This repository remains the incubation area for trial workflows, currently:
 
@@ -13,16 +13,17 @@ This repository remains the incubation area for trial workflows, currently:
 - Zoho Creator/Analytics payment reconciliation
 - Customer unused-credit and payment-anomaly utilities
 
-The confirmed modules are temporarily retained here as compatibility copies
-while callers migrate to `zoho_sdk_advanced`. New production work should import
-the promoted package; experimental work should stay here until it satisfies the
-promotion checklist in `../zoho_sdk_advanced/INDEX.md`.
+Legacy `zoho_usable_functions.reconciliation` and
+`zoho_usable_functions.credit_memos` import paths remain as lightweight module
+aliases; they contain no copied workflow implementations. New code should
+import promoted behavior from `workflows` directly. Experimental work remains
+here until it is ready to move into the SDK.
 
 ## Installation
 
 Install in editable mode along with `zoho_sdk`:
 ```bash
-pip install -e ../zoho_sdk
+pip install -e "../zoho_sdk[workflows]"
 pip install -e .
 ```
 
@@ -35,6 +36,7 @@ values to `.env.example`, source code, logs, or generated reports.
 
 ## Architecture
 
-`zoho_sdk` owns generic Zoho authentication, HTTP clients, resources,
-pagination, and actions. This package owns company workflows such as vendor
-reconciliation, credit-memo processing, and FAN inventory synchronization.
+`zoho_sdk` owns generic Zoho clients plus confirmed reconciliation and Polycab
+credit-memo workflows. This package owns incubating and company-specific
+utilities such as inventory synchronization, GST reconciliation, payment
+reconciliation, and customer audits.

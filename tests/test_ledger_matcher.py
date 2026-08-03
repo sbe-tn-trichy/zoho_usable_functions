@@ -422,7 +422,7 @@ class TestReconcileVendor(unittest.TestCase):
         self.ledger_path_unknown = "input_files/unknown/ledger.xls"
 
     @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
-    @patch("zoho_usable_functions.core.auth.get_books_client")
+    @patch("workflows.core.auth.get_books_client")
     def test_reconcile_vendor_with_all_explicit_params(self, mock_get_client, mock_reconcile_account):
         mock_reconcile_account.return_value = {"status": "success"}
 
@@ -445,9 +445,9 @@ class TestReconcileVendor(unittest.TestCase):
         mock_get_client.assert_not_called()
 
     @patch("zoho_usable_functions.reconciliation._vendor_reconciler.reconcile_vendor_account")
-    @patch("zoho_usable_functions.core.auth.get_books_client")
+    @patch("workflows.core.auth.get_books_client")
     def test_reconcile_vendor_auto_detect_polycab(self, mock_get_client, mock_reconcile_account):
-        from zoho_usable_functions.core.config import Config
+        from workflows.core.config import Config
         mock_reconcile_account.return_value = {"status": "success"}
         mock_get_client.return_value = self.books_client
 

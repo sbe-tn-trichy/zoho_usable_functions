@@ -49,11 +49,11 @@ PHASE 3: Automated Verification
 - Runner scripts live in `scripts/` and are NOT part of the importable library
 - Input files (ledgers, PDFs) live in `input_files/` (gitignored)
 - Config is always loaded via `Config` class in `core/config.py` — never hardcode IDs
-- The Zoho SDK (`zoho_sdk`) is a sibling package installed separately
+- The Zoho SDK (`zoho-sdk[workflows]`) owns confirmed reconciliation and Polycab credit-memo workflows
 
 ## When Adding New Functions
 
-1. Implement in the appropriate module (`reconciliation/`, `credit_memos/`, or `core/`)
+1. Implement incubating behavior in the appropriate project module. Add confirmed reconciliation or credit-memo behavior to the SDK `workflows` package, not to the compatibility aliases here.
 2. Export from `src/zoho_usable_functions/__init__.py`
 3. **Update `INDEX.md`** — add the function to the relevant table and document return shape
 

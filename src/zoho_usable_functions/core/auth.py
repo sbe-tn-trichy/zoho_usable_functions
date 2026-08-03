@@ -1,10 +1,9 @@
 import logging
 from typing import Optional, Dict
 from zoho import HttpTokenProvider, ZohoAnalyticsAPI
-from zoho.books import ZohoBooksAPI
-from zoho.wd import ZohoWorkdriveAPI
 from zoho.inventory import ZohoInventoryAPI
 from zoho.creator import ZohoCreatorAPI
+from workflows.core.auth import get_books_client, get_workdrive_client
 from .config import Config
 from .exceptions import ZohoAuthError
 
@@ -22,30 +21,6 @@ def fetch_access_tokens(token_url: str = Config.TOKEN_URL) -> Dict[str, Optional
     except Exception as e:
         logger.error("Failed to fetch access tokens: %s", e)
         raise ZohoAuthError("Failed to fetch access tokens from the configured token service.") from e
-
-def get_books_client(token: Optional[str] = None, org_id: str = Config.ORG_ID, domain: str = Config.DOMAIN) -> ZohoBooksAPI:
-    """
-    Instantiates and returns a ZohoBooksAPI client.
-    """
-    if not token:
-        tokens = fetch_access_tokens()
-        token = tokens.get("books")
-        if not token:
-            raise ZohoAuthError("No Zoho Books access token available.")
-            
-    return ZohoBooksAPI(access_token=token, organization_id=org_id, domain=domain)
-
-def get_workdrive_client(token: Optional[str] = None, domain: str = Config.DOMAIN) -> ZohoWorkdriveAPI:
-    """
-    Instantiates and returns a ZohoWorkdriveAPI client.
-    """
-    if not token:
-        tokens = fetch_access_tokens()
-        token = tokens.get("workdrive")
-        if not token:
-            raise ZohoAuthError("No Zoho Workdrive access token available.")
-            
-    return ZohoWorkdriveAPI(access_token=token, domain=domain)
 
 def get_inventory_client(
     token: Optional[str] = None,

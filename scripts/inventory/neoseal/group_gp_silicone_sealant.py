@@ -14,7 +14,6 @@ sys.path.insert(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"),
 )
 
-from zoho.base_client import BaseZohoClient
 from zoho_usable_functions.core.auth import get_inventory_client
 
 
@@ -92,16 +91,8 @@ def build_grouping_payload(details: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def group_items(client: Any, payload: dict[str, Any]) -> dict[str, Any]:
-    """Call Zoho Inventory's item-grouping endpoint."""
-
-    return BaseZohoClient.request(
-        client,
-        method="POST",
-        endpoint="items/grouping",
-        headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
-        data={"JSONString": json.dumps(payload)},
-        params={"organization_id": client.organization_id},
-    )
+    """Group variants through the typed Zoho Inventory SDK resource."""
+    return client.items.group_items(payload)
 
 
 def main() -> None:

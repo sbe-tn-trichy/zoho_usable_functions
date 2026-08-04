@@ -64,6 +64,12 @@ from .core.customers import (
     find_same_day_payment_anomalies,
 )
 from .core.cli import ScriptContext, init_script_context
+from .core.auth import get_analytics_client
+from .analytics.billed_prices import (
+    build_billed_prices_sql_query,
+    fetch_last_invoiced_prices,
+    get_last_billed_prices_for_customer,
+)
 
 __all__ = [
     "match_ledger_entries",
@@ -123,5 +129,10 @@ __all__ = [
     "extract_group_attributes",
     "item_to_row_dict",
     "classify_item_type",
-    "propose_fan_group"
+    "propose_fan_group",
+    "get_analytics_client",
+    "build_billed_prices_sql_query",
+    "fetch_last_invoiced_prices",
+    "get_last_billed_prices_for_customer",
 ]
+
